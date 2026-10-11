@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "priorityheader"
 version = "0.1.0"
-description = "Parse and build the HTTP Priority header (RFC 9218), urgency and incremental, zero dependencies and typed."
+description = "Parse and build the HTTP Priority header (RFC 9218), zero dependencies and typed."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

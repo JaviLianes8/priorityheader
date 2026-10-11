@@ -8,4 +8,6 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0]
 
-- First release.
+- First release: parse and build the HTTP Priority header (RFC 9218), with the
+  `u` urgency and `i` incremental members read from and written to an RFC 8941
+  structured-field dictionary, defaults applied on parse and omitted on build.
