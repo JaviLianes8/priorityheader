@@ -6,7 +6,12 @@ Thanks for taking the time. This project keeps a small, predictable shape.
 
 ```
 pip install -r requirements-dev.txt
+python scripts/fetch_upstream.py
 ```
+
+The second command downloads the RFCs, the IANA registry and the structured field test
+corpus listed in `tests/upstream/MANIFEST.json` and checks their hashes. They are kept out
+of the repository; the tests that need them skip until they are fetched.
 
 ## Before you open a pull request
 
