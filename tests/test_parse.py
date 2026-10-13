@@ -57,5 +57,6 @@ def test_parse_keeps_the_last_value_of_a_repeated_key() -> None:
     assert parse_priority("u=1, u=6") == Priority(6, False)
 
 
-def test_parse_keeps_the_clean_head_before_a_malformed_tail() -> None:
-    assert parse_priority("u=4, i, @broken") == Priority(4, True)
+def test_parse_ignores_the_whole_field_when_the_tail_is_malformed() -> None:
+    # RFC 9651 section 4.2: a field that fails to parse is ignored as a whole.
+    assert parse_priority("u=4, i, @broken") == Priority(3, False)

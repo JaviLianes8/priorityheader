@@ -4,7 +4,33 @@ import priorityheader
 
 # The public API. Add every exported name here as the library grows; this list is the
 # contract and the test below fails if the module and this list disagree.
-PUBLIC_API: list[str] = ["Priority", "PriorityError", "build_priority", "parse_priority"]
+PUBLIC_API: list[str] = [
+    "DEFAULT_URGENCY",
+    "H2_FRAME_TYPE",
+    "H3_PUSH_FRAME_TYPE",
+    "H3_REQUEST_FRAME_TYPE",
+    "MAX_URGENCY",
+    "MIN_URGENCY",
+    "Date",
+    "DisplayString",
+    "ExtensionValue",
+    "FieldInput",
+    "FrameError",
+    "Priority",
+    "PriorityError",
+    "PriorityParams",
+    "PriorityUpdate",
+    "Token",
+    "build_params",
+    "build_priority",
+    "decode_h2_update",
+    "decode_h3_update",
+    "encode_h2_update",
+    "encode_h3_update",
+    "merge_priority",
+    "parse_params",
+    "parse_priority",
+]
 
 
 def test_all_lists_exactly_the_public_api() -> None:
