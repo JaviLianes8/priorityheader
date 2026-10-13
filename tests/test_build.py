@@ -15,6 +15,7 @@ from priorityheader import (
     parse_params,
     parse_priority,
 )
+from priorityheader._sfwrite import serialize_bare_item
 
 
 def test_build_omits_both_defaults() -> None:
@@ -94,10 +95,12 @@ def test_build_writes_every_extension_type() -> None:
     assert parse_params(text, strict=True).extensions == extensions
 
 
-def test_build_rounds_a_decimal_to_three_places_half_even() -> None:
-    assert build_priority(extensions={"x": Decimal("0.0005")}) == "x=0.0"
-    assert build_priority(extensions={"x": Decimal("0.0015")}) == "x=0.002"
-    assert build_priority(extensions={"x": Decimal("-0.0001")}) == "x=0.0"
+def test_the_writer_rounds_a_decimal_to_three_places_half_even() -> None:
+    # RFC 9651 section 4.1.5; the builders refuse such values because they would not
+    # read back unchanged, but the writer itself follows the rounding rule.
+    assert serialize_bare_item(Decimal("0.0005")) == "0.0"
+    assert serialize_bare_item(Decimal("0.0015")) == "0.002"
+    assert serialize_bare_item(Decimal("-0.0001")) == "0.0"
     assert build_priority(extensions={"x": Decimal("-2")}) == "x=-2.0"
 
 

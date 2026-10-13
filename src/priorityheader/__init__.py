@@ -23,7 +23,7 @@ from ._model import (
     PriorityParams,
 )
 from ._parse import FieldInput, merge_priority, parse_params, parse_priority
-from ._sf import Date, DisplayString, Token
+from ._sftypes import Date, DisplayString, Token
 
 __version__ = "0.2.0"
 

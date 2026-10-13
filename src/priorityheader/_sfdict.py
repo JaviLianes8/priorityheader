@@ -2,16 +2,8 @@
 
 from __future__ import annotations
 
-from ._sf import (
-    BareItem,
-    InnerList,
-    Member,
-    Params,
-    Reader,
-    parse_bare_item,
-    parse_key,
-    parse_params,
-)
+from ._sf import Reader, parse_bare_item, parse_key, parse_params
+from ._sftypes import BareItem, InnerList, Member, Params
 
 _OWS = " \t"
 

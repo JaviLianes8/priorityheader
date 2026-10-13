@@ -31,7 +31,7 @@ def build_priority(
     Raises PriorityError for a value out of range or a key that is not a structured field
     key, and TypeError for a wrong type.
     """
-    check_urgency(urgency)
+    urgency = check_urgency(urgency)
     check_incremental(incremental)
     return _render(
         None if urgency == DEFAULT_URGENCY else urgency,

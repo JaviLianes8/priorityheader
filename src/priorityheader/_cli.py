@@ -16,18 +16,25 @@ from ._sfwrite import serialize_member
 
 EXIT_INVALID = 1
 _FIELD_LINE = re.compile(r"^([!#$%&'*+.^_`|~0-9A-Za-z-]+):(.*)$")
+_START_LINE = re.compile(r"^(HTTP/\S+ \d{3}\b|[A-Z]+ \S+ HTTP/\S+$)")
+_OWS = " \t"
 
 
 def _field_lines(text: str) -> list[str]:
     """Read field values from standard input: a bare value per line, or a message head.
 
-    In a head (for example the output of ``curl -sI``) only the Priority lines count.
+    A head (for example the output of ``curl -sI``) starts with a status or request line or
+    carries a Priority line; then only the Priority lines count. Anything else is a list of
+    bare values, so a broken value such as ``u:1`` is parsed (and refused by --strict)
+    instead of being mistaken for a header.
     """
-    lines = [line.strip(" \t") for line in text.splitlines()]
-    named = [match for match in map(_FIELD_LINE.match, lines) if match]
-    if not named:
-        return [line for line in lines if line]
-    return [m.group(2).strip(" \t") for m in named if m.group(1).lower() == "priority"]
+    lines = [line.strip(_OWS) for line in text.splitlines()]
+    present = [line for line in lines if line]
+    named = [match for match in map(_FIELD_LINE.match, present) if match]
+    priority = [m.group(2).strip(_OWS) for m in named if m.group(1).lower() == "priority"]
+    if priority or (present and _START_LINE.match(present[0])):
+        return priority
+    return present
 
 
 def _report(params: PriorityParams, *, response: bool) -> dict[str, object]:

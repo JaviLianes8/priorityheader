@@ -19,26 +19,36 @@ _STREAM_MASK = (1 << 31) - 1
 VARINT_MAX = (1 << 62) - 1
 
 Target = Literal["stream", "push"]
+Protocol = Literal["h2", "h3"]
 
 
 class PriorityUpdate(NamedTuple):
     """A decoded PRIORITY_UPDATE frame.
 
     ``element_id`` is the prioritized stream ID, or the push ID when ``target`` is
-    ``"push"`` (HTTP/3 type 0xF0701). ``field_value`` is the Priority Field Value as sent.
+    ``"push"`` (HTTP/3 type 0xF0701). ``field_value`` is the Priority Field Value as sent,
+    and ``protocol`` is ``"h2"`` or ``"h3"``.
     """
 
     element_id: int
     field_value: str
     target: Target = "stream"
+    protocol: Protocol = "h2"
 
     def priority(self, *, strict: bool = False) -> Priority:
         """The priority the frame asks for; absent members take their defaults (section 7).
 
-        With ``strict`` a value that fails to parse raises PriorityError, which RFC 9218
-        allows a receiver to treat as a connection error.
+        With ``strict`` a value that fails to parse raises FrameError with the code RFC 9218
+        section 7 allows a receiver to close the connection with: PROTOCOL_ERROR for HTTP/2,
+        H3_GENERAL_PROTOCOL_ERROR for HTTP/3. ``offset`` says where the value broke.
         """
-        return parse_priority(self.field_value, strict=strict)
+        try:
+            return parse_priority(self.field_value, strict=strict)
+        except PriorityError as error:
+            code = "PROTOCOL_ERROR" if self.protocol == "h2" else "H3_GENERAL_PROTOCOL_ERROR"
+            failure = FrameError(f"the Priority Field Value does not parse: {error}", code)
+            failure.offset = error.offset
+            raise failure from None
 
 
 def _value_octets(field_value: str) -> bytes:
@@ -106,7 +116,7 @@ def decode_h2_update(
     element = int.from_bytes(data[9:13], "big") & _STREAM_MASK
     if element == 0:
         raise FrameError("the prioritized stream ID is 0", "PROTOCOL_ERROR")
-    return PriorityUpdate(element, data[13:].decode("latin-1"))
+    return PriorityUpdate(element, data[13:].decode("latin-1"), "stream", "h2")
 
 
 def encode_varint(value: int) -> bytes:
@@ -163,4 +173,4 @@ def decode_h3_update(frame: bytes | bytearray | memoryview) -> PriorityUpdate:
     if kind == H3_REQUEST_FRAME_TYPE and element % 4:
         raise FrameError(f"{element} is not a request stream", "H3_ID_ERROR")
     target: Target = "stream" if kind == H3_REQUEST_FRAME_TYPE else "push"
-    return PriorityUpdate(element, data[offset:].decode("latin-1"), target)
+    return PriorityUpdate(element, data[offset:].decode("latin-1"), target, "h3")

@@ -5,11 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from decimal import Decimal
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 from ._errors import PriorityError
-from ._sf import Date, DisplayString, Token
-from ._sfwrite import serialize_key, serialize_member
+from ._sftypes import Date, DisplayString, Token
+from ._sfwrite import plain, serialize_key, serialize_member
 
 MIN_URGENCY = 0
 MAX_URGENCY = 7
@@ -30,9 +30,10 @@ class Priority(NamedTuple):
 def check_urgency(urgency: object) -> int:
     if isinstance(urgency, bool) or not isinstance(urgency, int):
         raise TypeError(f"urgency must be an int, got {urgency!r}")
-    if not MIN_URGENCY <= urgency <= MAX_URGENCY:
-        raise PriorityError(f"urgency {urgency} is outside 0..7")
-    return urgency
+    value = int.__int__(urgency)
+    if not MIN_URGENCY <= value <= MAX_URGENCY:
+        raise PriorityError(f"urgency {value} is outside 0..7")
+    return value
 
 
 def check_incremental(incremental: object) -> bool:
@@ -46,14 +47,16 @@ def check_extensions(extensions: object) -> dict[str, ExtensionValue]:
         raise TypeError(f"extensions must be a mapping, got {extensions!r}")
     checked: dict[str, ExtensionValue] = {}
     for key, value in extensions.items():
-        if key in ("u", "i"):
-            raise PriorityError(f"{key!r} is not an extension; pass it as urgency or incremental")
-        serialize_key(key)
-        if isinstance(value, list):
-            value = tuple(value)
+        name = serialize_key(key)
+        if name in ("u", "i"):
+            raise PriorityError(f"{name!r} is not an extension; pass it as urgency or incremental")
+        value = plain(value)
         # Serializing proves the value is representable, so building can never fail later.
         serialize_member(value)
-        checked[key] = value
+        for item in value if isinstance(value, tuple) else (value,):
+            if isinstance(item, Decimal) and item != item.quantize(Decimal("0.001")):
+                raise PriorityError(f"{item} has more than three decimal places")
+        checked[name] = cast(ExtensionValue, value)
     return checked
 
 

@@ -17,14 +17,14 @@ def test_h3_encode_writes_both_variants() -> None:
 
 
 def test_h3_decode_reads_both_variants() -> None:
-    assert decode_h3_update(H3_REQUEST) == PriorityUpdate(4, "u=1, i", "stream")
-    assert decode_h3_update(H3_PUSH) == PriorityUpdate(3, "u=1", "push")
+    assert decode_h3_update(H3_REQUEST) == PriorityUpdate(4, "u=1, i", "stream", "h3")
+    assert decode_h3_update(H3_PUSH) == PriorityUpdate(3, "u=1", "push", "h3")
     assert decode_h3_update(H3_REQUEST).priority() == Priority(1, True)
 
 
 def test_h3_decode_accepts_non_minimal_varints() -> None:
     frame = bytes.fromhex("c0000000000f070040078000000c") + b"u=1"
-    assert decode_h3_update(frame) == PriorityUpdate(12, "u=1", "stream")
+    assert decode_h3_update(frame) == PriorityUpdate(12, "u=1", "stream", "h3")
 
 
 @pytest.mark.parametrize(

@@ -90,7 +90,7 @@ print(frame.hex())
 # 00000710000000000000000005753d30
 update = decode_h2_update(frame)
 print(update)
-# PriorityUpdate(element_id=5, field_value='u=0', target='stream')
+# PriorityUpdate(element_id=5, field_value='u=0', target='stream', protocol='h2')
 print(update.priority())
 # Priority(urgency=0, incremental=False)
 
@@ -101,8 +101,11 @@ print(push.target, push.priority().urgency)
 
 The decoders raise `FrameError`, whose `code` names the connection error the RFCs assign:
 `PROTOCOL_ERROR` or `FRAME_SIZE_ERROR` for HTTP/2, `H3_FRAME_ERROR` or `H3_ID_ERROR` for
-HTTP/3, and None for bytes that are not a single PRIORITY_UPDATE frame. Stream state and
-stream limits belong to the connection and stay with the caller.
+HTTP/3, and None for bytes that are not a single PRIORITY_UPDATE frame.
+`update.priority(strict=True)` raises a `FrameError` with `PROTOCOL_ERROR` or
+`H3_GENERAL_PROTOCOL_ERROR` when the carried value does not parse, the error RFC 9218
+allows a server to close the connection with. Stream state and stream limits belong to the
+connection and stay with the caller.
 
 ## Command line
 
@@ -135,7 +138,7 @@ with 2.
 | `encode_h3_update`, `decode_h3_update` | HTTP/3 PRIORITY_UPDATE frames (0xF0700, 0xF0701) |
 | `Priority` | Named tuple of `urgency` and `incremental` |
 | `PriorityParams` | Immutable members of a field, with `over()` and `resolve()` |
-| `PriorityUpdate` | Decoded frame: `element_id`, `field_value`, `target`, `priority()` |
+| `PriorityUpdate` | Decoded frame: `element_id`, `field_value`, `target`, `protocol`, `priority()` |
 | `PriorityError` | A `ValueError` with the `offset` of a strict parse failure |
 | `FrameError` | A `PriorityError` with the RFC error `code` |
 | `Token`, `Date`, `DisplayString` | Structured field types for extension values |

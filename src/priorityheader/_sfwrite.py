@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from ._errors import PriorityError
-from ._sf import ALPHA, KEY_CHARS, LCALPHA, TOKEN_CHARS, BareItem, Date, DisplayString, Token
+from ._sftypes import ALPHA, KEY_CHARS, LCALPHA, TOKEN_CHARS, BareItem, Date, DisplayString, Token
 
 INTEGER_LIMIT = 999_999_999_999_999
 _DECIMAL_LIMIT = 999_999_999_999
@@ -17,6 +17,7 @@ def serialize_key(key: object) -> str:
     """Return ``key`` when it is a valid Dictionary or Parameter key."""
     if not isinstance(key, str):
         raise TypeError(f"a key is a str, got {key!r}")
+    key = str.__str__(key)
     if not key or (key[0] not in LCALPHA and key[0] != "*"):
         raise PriorityError(f"{key!r} is not a structured field key")
     if any(char not in KEY_CHARS for char in key):
@@ -38,8 +39,8 @@ def _integer(value: int) -> str:
 
 
 def _decimal(value: Decimal) -> str:
-    if not value.is_finite():
-        raise PriorityError(f"{value} is not a finite Decimal")
+    if not value.is_finite() or value.adjusted() >= 12:
+        raise PriorityError(f"{value} is not a Decimal of at most 12 integer digits")
     rounded = value.quantize(Decimal("0.001"), rounding=ROUND_HALF_EVEN)
     if abs(rounded) > _DECIMAL_LIMIT + Decimal("0.999"):
         raise PriorityError(f"{value} has more than 12 integer digits")
@@ -55,8 +56,12 @@ def _string(value: str) -> str:
 
 
 def _display(value: str) -> str:
+    try:
+        octets = value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise PriorityError("a Display String must be valid Unicode text") from None
     out: list[str] = []
-    for octet in value.encode("utf-8"):
+    for octet in octets:
         if octet in (0x25, 0x22) or not 0x20 <= octet <= 0x7E:
             out.append(f"%{octet:02x}")
         else:
@@ -64,8 +69,36 @@ def _display(value: str) -> str:
     return '%"' + "".join(out) + '"'
 
 
+def plain(value: object) -> object:
+    """Return ``value`` as an exact library type, dropping any subclass behaviour.
+
+    A subclass could override ``__str__`` or ``replace`` and smuggle text past the checks,
+    so the writer only ever works on copies made through the base type slots.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, Date):
+        return Date(int.__int__(value))
+    if isinstance(value, int):
+        return int.__int__(value)
+    if isinstance(value, Decimal):
+        return Decimal(value)
+    if isinstance(value, Token):
+        return Token(str.__str__(value))
+    if isinstance(value, DisplayString):
+        return DisplayString(str.__str__(value))
+    if isinstance(value, str):
+        return str.__str__(value)
+    if isinstance(value, bytes):
+        return bytes(memoryview(value))
+    if isinstance(value, (tuple, list)):
+        return tuple(plain(item) for item in value)
+    raise TypeError(f"cannot serialize {type(value).__name__} as a structured field item")
+
+
 def serialize_bare_item(value: object) -> str:
     """Serialize one bare item of any RFC 9651 type."""
+    value = plain(value)
     if isinstance(value, bool):
         return "?1" if value else "?0"
     if isinstance(value, Date):
@@ -109,4 +142,9 @@ def serialize_dictionary(members: Mapping[str, object] | Sequence[tuple[str, obj
     for key, value in pairs:
         name = serialize_key(key)
         out.append(name if value is True else f"{name}={serialize_member(value)}")
-    return ", ".join(out)
+    text = ", ".join(out)
+    # Every step above already refuses control characters; this keeps a header line safe
+    # even if one of them is wrong.
+    if any(not " " <= char <= "~" for char in text):
+        raise PriorityError("the serialized value holds characters a field cannot carry")
+    return text

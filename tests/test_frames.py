@@ -27,7 +27,7 @@ def test_h2_encode_writes_the_frame_layout() -> None:
 
 def test_h2_decode_reads_the_frame() -> None:
     update = decode_h2_update(H2_U0)
-    assert update == PriorityUpdate(5, "u=0", "stream")
+    assert update == PriorityUpdate(5, "u=0", "stream", "h2")
     assert update.priority() == Priority(0, False)
 
 
