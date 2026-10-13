@@ -81,7 +81,7 @@ def encode_h2_update(
 
 
 def decode_h2_update(
-    frame: bytes, *, max_frame_size: int = H2_DEFAULT_MAX_FRAME_SIZE
+    frame: bytes | bytearray | memoryview, *, max_frame_size: int = H2_DEFAULT_MAX_FRAME_SIZE
 ) -> PriorityUpdate:
     """Decode one complete HTTP/2 PRIORITY_UPDATE frame, header included.
 
@@ -141,7 +141,7 @@ def encode_h3_update(element_id: int, field_value: str, *, target: Target = "str
     return encode_varint(kind) + encode_varint(len(payload)) + payload
 
 
-def decode_h3_update(frame: bytes) -> PriorityUpdate:
+def decode_h3_update(frame: bytes | bytearray | memoryview) -> PriorityUpdate:
     """Decode one complete HTTP/3 PRIORITY_UPDATE frame (type, length and payload).
 
     Raises FrameError with ``code`` H3_FRAME_ERROR for a payload that ends inside the

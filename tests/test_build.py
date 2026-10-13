@@ -76,7 +76,7 @@ def test_build_appends_extensions_after_u_and_i() -> None:
 
 
 def test_build_writes_every_extension_type() -> None:
-    extensions = {
+    extensions: dict[str, ExtensionValue] = {
         "a": False,
         "b": Decimal("1.50"),
         "c": 'q"\\',
