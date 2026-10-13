@@ -10,7 +10,7 @@ from ._sfdict import parse_dictionary
 
 #: What the parsers accept: one field value, its octets, the values of several field lines,
 #: or None for an absent field.
-FieldInput = str | bytes | Sequence[str | bytes] | None
+FieldInput = str | bytes | bytearray | Sequence[str | bytes] | None
 
 
 def field_text(header: object) -> str | None:

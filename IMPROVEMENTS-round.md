@@ -3,9 +3,9 @@
 Progress:
 - [x] Brainstorm ranked improvements (this file)
 - [x] Pin the ground truth: RFC 9218, RFC 9651, IANA HTTP Priority registry, RFC 9113, RFC 9114, RFC 9000, structured field test corpus
-- [ ] Structured field dictionary parser and serializer on RFC 9651, checked against the corpus
-- [ ] Priority parsing on the whole field: failure means defaults, strict mode raises
-- [ ] Response parameters and merging (RFC 9218 section 8)
+- [x] Structured field dictionary parser and serializer on RFC 9651, checked against the corpus
+- [x] Priority parsing on the whole field: failure means defaults, strict mode raises
+- [x] Response parameters and merging (RFC 9218 section 8)
 - [ ] Safe builder: request form, explicit form, extension parameters
 - [ ] PRIORITY_UPDATE frames for HTTP/2 and HTTP/3
 - [ ] Command line
