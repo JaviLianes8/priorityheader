@@ -1,4 +1,9 @@
-from priorityheader import Priority, parse_priority
+from collections import deque
+
+import pytest
+
+from priorityheader import Priority, PriorityError, parse_params, parse_priority
+from priorityheader._sfdict import parse_dictionary
 
 
 def test_parse_reads_urgency_and_incremental() -> None:
@@ -57,5 +62,110 @@ def test_parse_keeps_the_last_value_of_a_repeated_key() -> None:
     assert parse_priority("u=1, u=6") == Priority(6, False)
 
 
-def test_parse_keeps_the_clean_head_before_a_malformed_tail() -> None:
-    assert parse_priority("u=4, i, @broken") == Priority(4, True)
+def test_parse_ignores_the_whole_field_when_the_tail_is_malformed() -> None:
+    # RFC 9651 section 4.2: a field that fails to parse is ignored as a whole.
+    assert parse_priority("u=4, i, @broken") == Priority(3, False)
+
+
+def test_parse_ignores_a_field_with_an_invalid_boolean() -> None:
+    assert parse_priority("u=1, i=?2") == Priority(3, False)
+
+
+def test_parse_ignores_a_field_with_a_trailing_comma() -> None:
+    assert parse_priority("u=1,") == Priority(3, False)
+
+
+def test_parse_ignores_a_field_with_a_leading_tab() -> None:
+    # RFC 9651 discards only leading SP before a field value.
+    assert parse_priority("\tu=1") == Priority(3, False)
+
+
+def test_parse_ignores_a_field_with_an_integer_of_sixteen_digits() -> None:
+    assert parse_priority("u=0000000000000001") == Priority(3, False)
+
+
+def test_parse_accepts_an_integer_of_fifteen_digits() -> None:
+    assert parse_priority("u=000000000000001") == Priority(1, False)
+
+
+def test_parse_ignores_a_field_with_non_ascii_text() -> None:
+    assert parse_priority('u=1, x="\u00e9"') == Priority(3, False)
+
+
+def test_parse_ignores_a_field_with_members_not_separated_by_a_comma() -> None:
+    assert parse_priority("u=1 i") == Priority(3, False)
+
+
+def test_parse_reads_bytes_as_ascii() -> None:
+    assert parse_priority(b"u=1, i") == Priority(1, True)
+    assert parse_priority(bytearray(b"u=2")) == Priority(2, False)
+
+
+def test_parse_ignores_bytes_outside_ascii() -> None:
+    assert parse_priority(b"u=1, x=\xff") == Priority(3, False)
+
+
+def test_parse_joins_several_field_lines() -> None:
+    assert parse_priority(["u=1", "i"]) == Priority(1, True)
+    assert parse_priority(("u=6", b"u=2")) == Priority(2, False)
+
+
+def test_parse_treats_none_and_no_lines_as_an_absent_field() -> None:
+    assert parse_priority(None) == Priority(3, False)
+    assert parse_priority([]) == Priority(3, False)
+
+
+def test_parse_rejects_other_types() -> None:
+    for value in (3, 1.5, {"u": 1}, ["u=1", 2]):
+        with pytest.raises(TypeError):
+            parse_priority(value)  # type: ignore[arg-type]
+
+
+def test_parse_ignores_an_urgency_of_the_wrong_type() -> None:
+    for header in ("u=?1", "u=@1", "u=(1)", 'u="1"', "u=a", "u=:AQ==:"):
+        assert parse_priority(header) == Priority(3, False), header
+
+
+def test_parse_ignores_an_incremental_flag_of_the_wrong_type() -> None:
+    for header in ("i=1", "i=(?1)", 'i="?1"', "i=a"):
+        assert parse_priority(header) == Priority(3, False), header
+
+
+def test_parse_reads_members_that_carry_parameters() -> None:
+    assert parse_priority("u=2;a=1, i;b") == Priority(2, True)
+
+
+def test_parse_tolerates_a_trailing_tab_after_the_last_member() -> None:
+    assert parse_priority("u=1\t") == Priority(1, False)
+
+
+def test_parse_reads_the_extremes_of_the_range() -> None:
+    assert parse_priority("u=0") == Priority(0, False)
+    assert parse_priority("u=7") == Priority(7, False)
+    assert parse_priority("u=8") == Priority(3, False)
+
+
+def test_a_later_invalid_urgency_cancels_an_earlier_valid_one() -> None:
+    # The last value of a repeated key is the one the Dictionary keeps.
+    assert parse_priority("u=1, u=9") == Priority(3, False)
+
+
+def test_parse_keeps_a_non_ascii_octet_instead_of_dropping_it() -> None:
+    assert parse_priority(b"u=1\xff") == Priority(3, False)
+    with pytest.raises(PriorityError) as caught:
+        parse_priority(b"u=1\xff", strict=True)
+    assert caught.value.offset == 3
+
+
+def test_parse_reads_a_byte_sequence_without_padding() -> None:
+    # RFC 9651 section 4.2.7: parsers should not fail when "=" padding is missing.
+    assert parse_params("x=:aGk:").extensions["x"] == b"hi"
+
+
+def test_parse_keeps_the_last_value_of_a_repeated_parameter() -> None:
+    members = parse_dictionary("x;a=1;a=2")
+    assert members["x"] == (True, {"a": 2})
+
+
+def test_parse_takes_any_sequence_of_field_lines() -> None:
+    assert parse_priority(deque(["u=1", "i"])) == Priority(1, True)

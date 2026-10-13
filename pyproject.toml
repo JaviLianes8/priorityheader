@@ -4,24 +4,37 @@ build-backend = "hatchling.build"
 
 [project]
 name = "priorityheader"
-version = "0.1.0"
-description = "Parse and build the HTTP Priority header (RFC 9218), zero dependencies and typed."
+version = "0.2.0"
+description = "Parse, merge and build the HTTP Priority field and PRIORITY_UPDATE frames (RFC 9218), zero dependencies and typed."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Javier Lianes", email = "javier@lianes8studio.com" }]
-keywords = []
+keywords = ["http", "priority", "rfc9218", "structured-fields", "rfc9651", "http2", "http3", "priority-update", "headers"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "pytest", "build", "twine"]
+
+[project.scripts]
+priorityheader = "priorityheader._cli:main"
 
 [project.urls]
 Homepage = "https://lianes8studio.com"
@@ -33,6 +46,17 @@ Funding = "https://buymeacoffee.com/jlianesglrs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/priorityheader"]
+
+[tool.hatch.build.targets.sdist]
+# Third-party reference files are fetched locally and never shipped; only their manifest is.
+exclude = [
+    ".github",
+    "scratchpad",
+    "IMPROVEMENTS-round*.md",
+    "tests/upstream/*.txt",
+    "tests/upstream/*.xml",
+    "tests/upstream/sf",
+]
 
 [tool.ruff]
 line-length = 100
