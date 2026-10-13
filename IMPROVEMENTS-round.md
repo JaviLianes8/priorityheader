@@ -9,10 +9,10 @@ Progress:
 - [x] Safe builder: request form, explicit form, extension parameters
 - [x] PRIORITY_UPDATE frames for HTTP/2 and HTTP/3
 - [x] Command line
-- [ ] Contracts: pinned sources, README examples, typing, installed wheel
+- [x] Contracts: pinned sources, README examples, typing, installed wheel
 - [x] Docs and packaging: README, CHANGELOG, metadata, sdist contents
-- [ ] Gates: ruff format, ruff check, mypy --strict, pytest
-- [ ] Mutation run: removing guarded logic makes the suite fail
+- [x] Gates: ruff format, ruff check, mypy --strict, pytest
+- [x] Mutation run: removing guarded logic makes the suite fail
 - [ ] Independent review findings fixed with regression tests
 - [ ] Pull request opened, guard clean
 
@@ -104,3 +104,29 @@ Probed against the sources below:
 - Stream state tracking (idle, open, closed) and SETTINGS_MAX_CONCURRENT_STREAMS checks for
   PRIORITY_UPDATE: they need connection state the codec does not own.
 - Structured field Lists at the top level: the Priority field is a Dictionary.
+
+## Verification
+
+- Gates on CPython 3.13.2: `ruff format --check .`, `ruff check .`, `mypy --strict src`
+  (and `src tests`) and `pytest`, run on a fresh clone of the branch with the reference files
+  fetched by `scripts/fetch_upstream.py` (every file matched the manifest). With
+  `PRIORITYHEADER_E2E=1` the installed-wheel test builds the wheel and sdist, checks their
+  contents (no planning notes, no fetched files, the manifest, the fetch script and the entry
+  point present), installs the wheel in a fresh venv and drives the API, the
+  `priorityheader` script and `python -m priorityheader` from an empty folder. Without the
+  fetched files their tests skip and the rest of the suite passes.
+- Guarded logic was changed one piece at a time (130 mutations, no bytecode written,
+  `__pycache__` purged before each run, 180 s limit per mutant, baseline green before and
+  after). The first run left 15 alive. Tests were added for ten: the last of repeated
+  parameters, a byte sequence without padding, the message for a non-string key, type tags
+  inside inner lists, deferring equality to the other operand, a non-ASCII octet in bytes
+  input, the frame size boundary on both the encoder and the decoder, a head value after a
+  tab, and an empty list of field lines (the guard was redundant and was removed). Five are
+  equivalent: reading `?1` as "not `?0`" after the check that only `0` or `1` follow,
+  wrapping a Date value that is already an int, the length check in front of the hex check
+  of a Display String escape (a short escape fails as unterminated anyway), accepting a
+  comma after an inner list member (the next item fails to parse), and a lower element ID
+  bound for HTTP/3 below zero (the varint encoder refuses it).
+- Seeded random round trips build 3000 parameter sets and 1000 request values and read them
+  back strictly, 500 of each frame type round trip, and 5000 random strings and 5000 random
+  octet strings go through the parsers and decoders without any undocumented exception.

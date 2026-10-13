@@ -1,3 +1,5 @@
+from collections import deque
+
 import pytest
 
 from priorityheader import Priority, PriorityError, parse_params, parse_priority
@@ -163,3 +165,7 @@ def test_parse_reads_a_byte_sequence_without_padding() -> None:
 def test_parse_keeps_the_last_value_of_a_repeated_parameter() -> None:
     members = parse_dictionary("x;a=1;a=2")
     assert members["x"] == (True, {"a": 2})
+
+
+def test_parse_takes_any_sequence_of_field_lines() -> None:
+    assert parse_priority(deque(["u=1", "i"])) == Priority(1, True)

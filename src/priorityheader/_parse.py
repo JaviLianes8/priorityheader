@@ -17,7 +17,7 @@ def field_text(header: object) -> str | None:
     """Return the field value to parse, joining several field lines with a comma."""
     if header is None:
         return None
-    if isinstance(header, (list, tuple)):
+    if isinstance(header, Sequence) and not isinstance(header, (str, bytes, bytearray)):
         return ", ".join(_line(line) for line in header)
     return _line(header)
 
