@@ -158,3 +158,18 @@ fails on the code before the fix (`tests/test_review_fixes.py` and the updated t
   `param-listlist`), which exercise the inner list and item readers.
 - `_sf.py` was split (types and character sets moved to `_sftypes.py`) so it stays well
   under the 200 line limit.
+
+## Second mutation run
+
+After the review fixes the gates, the corpus, the installed-wheel test and the mutation run
+were repeated on a fresh clone on a second machine (CPython 3.14.2; every fetched file
+matched the manifest). 149 mutations, baseline green before and after; 11 survived. Tests
+were added for five (`tests/test_writer_hardening.py`): a Decimal that rounds up to 13
+integer digits, a key subclass that lies in `__str__` and `__format__`, a Date subclass that
+lies in `__int__`, the item writer called on its own with a lying int, and a message head
+without a Priority line in strict mode. Each was checked to fail with its mutant applied.
+The other six are equivalent: the four listed for the first run that still apply (`?1`
+reading, the Date wrap in the reader, the comma after an inner list member, the HTTP/3
+lower bound), keeping the plain urgency returned by the check (the writer makes its own
+plain copy), and the last check of the serialized dictionary for control characters (every
+earlier step already refuses them; it stays as a second line of defence).
