@@ -8,7 +8,7 @@ Progress:
 - [x] Response parameters and merging (RFC 9218 section 8)
 - [x] Safe builder: request form, explicit form, extension parameters
 - [x] PRIORITY_UPDATE frames for HTTP/2 and HTTP/3
-- [ ] Command line
+- [x] Command line
 - [ ] Contracts: pinned sources, README examples, typing, installed wheel
 - [ ] Docs and packaging: README, CHANGELOG, metadata, sdist contents
 - [ ] Gates: ruff format, ruff check, mypy --strict, pytest
