@@ -27,7 +27,8 @@ All notable changes to this project are documented here. The format follows
 - `build_params` writes exactly the members given, so a response can carry `u=3`;
   `build_priority` takes `extensions`. Both refuse what they cannot write back.
 - PRIORITY_UPDATE frames: `encode_h2_update`, `decode_h2_update`, `encode_h3_update`,
-  `decode_h3_update`, `PriorityUpdate` and `FrameError` with the RFC error code.
+  `decode_h3_update`, `PriorityUpdate` and `FrameError` with the RFC error code;
+  `PriorityUpdate.priority(strict=True)` raises the code section 7 names.
 - Structured field types `Token`, `Date` and `DisplayString` for extension values.
 - `priorityheader` command line and `python -m priorityheader`.
 

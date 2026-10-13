@@ -1,8 +1,9 @@
 """Run the httpwg structured field test corpus against the parser and the serializer.
 
 The corpus files are fetched into tests/upstream/sf (see MANIFEST.json); these tests skip
-until `python scripts/fetch_upstream.py` has fetched them. Top-level Lists are out of scope
-for parsing (the Priority field is a Dictionary) but their items still exercise the writer.
+until `python scripts/fetch_upstream.py` has fetched them. Top-level Lists are parsed here
+with a small helper on the library's inner list and item readers, which exercises those
+readers on the corpus cases built around them.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from conftest import read_upstream
 
 from priorityheader import Date, DisplayString, PriorityError, Token
 from priorityheader._sf import Reader
-from priorityheader._sfdict import parse_dictionary, parse_item
+from priorityheader._sfdict import _inner_list, parse_dictionary, parse_item
 from priorityheader._sfwrite import serialize_bare_item, serialize_key, serialize_params
 
 PARSE_FILES = [
@@ -30,9 +31,13 @@ PARSE_FILES = [
     "item",
     "key-generated",
     "large-generated",
+    "list",
+    "listlist",
     "number",
     "number-generated",
     "param-dict",
+    "param-list",
+    "param-listlist",
     "string",
     "string-generated",
     "token",
@@ -97,6 +102,23 @@ def _write(case: dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
+def _parse_list(r: Reader) -> list[Any]:
+    """Top-level List parsing (RFC 9651 section 4.2.1), written here for the corpus only."""
+    members: list[Any] = []
+    while not r.done():
+        value, params = _inner_list(r) if r.peek() == "(" else parse_item(r)
+        members.append([_plain(value), _params(params)])
+        r.skip(" \t")
+        if r.done():
+            break
+        if r.take() != ",":
+            raise PriorityError("expected ','")
+        r.skip(" \t")
+        if r.done():
+            raise PriorityError("trailing comma")
+    return members
+
+
 def _parse(case: dict[str, Any]) -> Any:
     text = ", ".join(case["raw"])
     if case["header_type"] == "dictionary":
@@ -106,6 +128,8 @@ def _parse(case: dict[str, Any]) -> Any:
     if not text.isascii():
         raise PriorityError("structured fields are ASCII")
     r.skip(" ")
+    if case["header_type"] == "list":
+        return _parse_list(r)
     item, params = parse_item(r)
     r.skip(" ")
     if not r.done():
@@ -118,8 +142,6 @@ def test_the_corpus_file_parses_as_expected(name: str) -> None:
     cases = json.loads(read_upstream(f"sf/{name}.json"), parse_float=Decimal)
     checked = 0
     for case in cases:
-        if case["header_type"] == "list":
-            continue
         try:
             got = _parse(case)
         except PriorityError:

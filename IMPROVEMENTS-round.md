@@ -13,7 +13,7 @@ Progress:
 - [x] Docs and packaging: README, CHANGELOG, metadata, sdist contents
 - [x] Gates: ruff format, ruff check, mypy --strict, pytest
 - [x] Mutation run: removing guarded logic makes the suite fail
-- [ ] Independent review findings fixed with regression tests
+- [x] Independent review findings fixed with regression tests
 - [ ] Pull request opened, guard clean
 
 ## Starting point
@@ -130,3 +130,31 @@ Probed against the sources below:
 - Seeded random round trips build 3000 parameter sets and 1000 request values and read them
   back strictly, 500 of each frame type round trip, and 5000 random strings and 5000 random
   octet strings go through the parsers and decoders without any undocumented exception.
+
+## Review fixes
+
+An independent review attacked the branch; each finding below is fixed with a test that
+fails on the code before the fix (`tests/test_review_fixes.py` and the updated tests):
+
+- A Decimal with a large exponent (`1e30`) raised `decimal.InvalidOperation` from the writer;
+  the magnitude is now checked first and `PriorityError` is raised.
+- Subclasses of `int`, `str` or `Token` that override `__str__` or `replace` could put CR LF
+  into a built value. The writer now works on plain copies made through the base types,
+  `PriorityParams` stores those copies, and the serialized dictionary is checked once more
+  for characters a field line cannot carry.
+- A Decimal with more than three decimal places was accepted and silently rounded, so it
+  did not read back unchanged; the builders and `PriorityParams` now refuse it (the writer
+  still rounds as RFC 9651 section 4.1.5 says).
+- A Display String holding a lone surrogate raised `UnicodeEncodeError`; now `PriorityError`.
+- `PriorityUpdate` records the protocol, and `priority(strict=True)` raises `FrameError`
+  with `PROTOCOL_ERROR` (HTTP/2) or `H3_GENERAL_PROTOCOL_ERROR` (HTTP/3), the codes RFC 9218
+  section 7 names for a value that does not parse.
+- The command line took a broken value such as `u:1` on standard input for a header line and
+  ignored it, even with `--strict`. Input now counts as a message head only when it starts
+  with a status or request line or carries a Priority line.
+- An unterminated escape reported an offset past the end of the value; offsets are now
+  clamped to the length of the text.
+- The corpus run now includes the List files (`list`, `listlist`, `param-list`,
+  `param-listlist`), which exercise the inner list and item readers.
+- `_sf.py` was split (types and character sets moved to `_sftypes.py`) so it stays well
+  under the 200 line limit.

@@ -232,5 +232,41 @@
     "licence": "BSD-3-Clause style licence of the IETF Trust (LICENSE.md in the same repository)",
     "size": 33433,
     "sha256": "1f4db75952490df9b7ef17f71f745275482f3cb36e34527c3c1ca434f7e3d868"
+  },
+  "sf/list.json": {
+    "title": "Structured field test corpus, list.json",
+    "url": "https://raw.githubusercontent.com/httpwg/structured-field-tests/781ba38464b2ec4c547e1e14d007d4f5ace7457e/list.json",
+    "revision": "httpwg/structured-field-tests commit 781ba38464b2ec4c547e1e14d007d4f5ace7457e",
+    "fetched": "2026-10-14",
+    "licence": "BSD-3-Clause style licence of the IETF Trust (LICENSE.md in the same repository)",
+    "size": 1750,
+    "sha256": "d8d21cac1f5814363a5cfe56b1bd80963bce36cacbb0c1a59d59c14ae7622ba7"
+  },
+  "sf/listlist.json": {
+    "title": "Structured field test corpus, listlist.json",
+    "url": "https://raw.githubusercontent.com/httpwg/structured-field-tests/781ba38464b2ec4c547e1e14d007d4f5ace7457e/listlist.json",
+    "revision": "httpwg/structured-field-tests commit 781ba38464b2ec4c547e1e14d007d4f5ace7457e",
+    "fetched": "2026-10-14",
+    "licence": "BSD-3-Clause style licence of the IETF Trust (LICENSE.md in the same repository)",
+    "size": 1969,
+    "sha256": "82b961c02b55753d122a8f72bffde93d178575f03a43154818afb73091f688cf"
+  },
+  "sf/param-list.json": {
+    "title": "Structured field test corpus, param-list.json",
+    "url": "https://raw.githubusercontent.com/httpwg/structured-field-tests/781ba38464b2ec4c547e1e14d007d4f5ace7457e/param-list.json",
+    "revision": "httpwg/structured-field-tests commit 781ba38464b2ec4c547e1e14d007d4f5ace7457e",
+    "fetched": "2026-10-14",
+    "licence": "BSD-3-Clause style licence of the IETF Trust (LICENSE.md in the same repository)",
+    "size": 4814,
+    "sha256": "232e87b307051619055262cd6ac550790961db11ed1f58d8139186b872afca17"
+  },
+  "sf/param-listlist.json": {
+    "title": "Structured field test corpus, param-listlist.json",
+    "url": "https://raw.githubusercontent.com/httpwg/structured-field-tests/781ba38464b2ec4c547e1e14d007d4f5ace7457e/param-listlist.json",
+    "revision": "httpwg/structured-field-tests commit 781ba38464b2ec4c547e1e14d007d4f5ace7457e",
+    "fetched": "2026-10-14",
+    "licence": "BSD-3-Clause style licence of the IETF Trust (LICENSE.md in the same repository)",
+    "size": 1022,
+    "sha256": "fde5860376f2be0d2d497fb2e2c5a36ee2bdace0ecfc511ba474ec14e6852321"
   }
 }

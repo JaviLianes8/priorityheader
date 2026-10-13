@@ -138,3 +138,18 @@ def test_every_error_code_is_one_the_rfcs_define(rfc9113: str, rfc9114: str) -> 
         assert re.search(rf"^\s+{code} \(0x[0-9a-f]+\):", rfc9113, flags=re.MULTILINE), code
     for code in h3:
         assert re.search(rf"^\s+{code} \(0x[0-9a-f]+\):", rfc9114, flags=re.MULTILINE), code
+
+
+def test_the_value_failure_codes_follow_section_7(rfc9218: str, rfc9114: str) -> None:
+    section = " ".join(_section(rfc9218, "7.  The PRIORITY_UPDATE Frame", "7.1.  HTTP/2").split())
+    assert "In HTTP/2, the error is of type PROTOCOL_ERROR" in section
+    assert "in HTTP/3, the error is of type H3_GENERAL_PROTOCOL_ERROR" in section
+    assert re.search(r"^\s+H3_GENERAL_PROTOCOL_ERROR \(0x[0-9a-f]+\):", rfc9114, re.MULTILINE)
+    h2 = decode_h2_update(bytes.fromhex("000005 10 00 00000000 00000001") + b",")
+    h3 = decode_h3_update(bytes.fromhex("800f0700 02 00") + b",")
+    codes = []
+    for update in (h2, h3):
+        with pytest.raises(FrameError) as caught:
+            update.priority(strict=True)
+        codes.append(caught.value.code)
+    assert codes == ["PROTOCOL_ERROR", "H3_GENERAL_PROTOCOL_ERROR"]
