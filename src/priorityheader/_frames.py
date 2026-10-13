@@ -51,6 +51,12 @@ def _value_octets(field_value: str) -> bytes:
     return field_value.encode("ascii")
 
 
+def _octets(frame: object) -> bytes:
+    if not isinstance(frame, (bytes, bytearray, memoryview)):
+        raise TypeError(f"a frame is bytes, got {frame!r}")
+    return bytes(frame)
+
+
 def _check_id(value: object, low: int, high: int, what: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{what} must be an int, got {value!r}")
@@ -84,7 +90,8 @@ def decode_h2_update(
     FRAME_SIZE_ERROR for a payload shorter than 4 bytes or larger than ``max_frame_size``.
     The reserved bits are ignored, as RFC 9113 section 4.1 requires.
     """
-    data = bytes(frame)
+    data = _octets(frame)
+    _check_id(max_frame_size, H2_DEFAULT_MAX_FRAME_SIZE, _H2_MAX_FRAME_SIZE, "max_frame_size")
     if len(data) < 9 or data[3] != H2_FRAME_TYPE:
         raise FrameError("not an HTTP/2 PRIORITY_UPDATE frame")
     length = int.from_bytes(data[:3], "big")
@@ -142,7 +149,7 @@ def decode_h3_update(frame: bytes) -> PriorityUpdate:
     client-initiated bidirectional (request) stream. Stream limits and push ID state need
     the connection and are left to the caller.
     """
-    data = bytes(frame)
+    data = _octets(frame)
     try:
         kind, offset = decode_varint(data)
         length, offset = decode_varint(data, offset)

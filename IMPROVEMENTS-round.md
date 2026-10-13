@@ -6,8 +6,8 @@ Progress:
 - [x] Structured field dictionary parser and serializer on RFC 9651, checked against the corpus
 - [x] Priority parsing on the whole field: failure means defaults, strict mode raises
 - [x] Response parameters and merging (RFC 9218 section 8)
-- [ ] Safe builder: request form, explicit form, extension parameters
-- [ ] PRIORITY_UPDATE frames for HTTP/2 and HTTP/3
+- [x] Safe builder: request form, explicit form, extension parameters
+- [x] PRIORITY_UPDATE frames for HTTP/2 and HTTP/3
 - [ ] Command line
 - [ ] Contracts: pinned sources, README examples, typing, installed wheel
 - [ ] Docs and packaging: README, CHANGELOG, metadata, sdist contents
