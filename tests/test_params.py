@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest import mock
 
 import pytest
 
@@ -124,3 +125,16 @@ def test_repr_shows_the_members() -> None:
 def test_the_constructor_validates(kwargs: dict[str, object], error: type[Exception]) -> None:
     with pytest.raises(error):
         PriorityParams(**kwargs)  # type: ignore[arg-type]
+
+
+def test_a_key_of_the_wrong_type_is_named_in_the_error() -> None:
+    with pytest.raises(TypeError, match="a key is a str"):
+        PriorityParams(extensions={1: 1})  # type: ignore[dict-item]
+
+
+def test_equality_tells_item_types_apart_inside_inner_lists() -> None:
+    assert PriorityParams(extensions={"x": (True,)}) != PriorityParams(extensions={"x": (1,)})
+
+
+def test_comparison_with_other_types_defers_to_them() -> None:
+    assert PriorityParams() == mock.ANY

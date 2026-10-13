@@ -18,7 +18,7 @@ def field_text(header: object) -> str | None:
     if header is None:
         return None
     if isinstance(header, (list, tuple)):
-        return ", ".join(_line(line) for line in header) if header else None
+        return ", ".join(_line(line) for line in header)
     return _line(header)
 
 

@@ -1,6 +1,7 @@
 import pytest
 
-from priorityheader import Priority, parse_priority
+from priorityheader import Priority, PriorityError, parse_params, parse_priority
+from priorityheader._sfdict import parse_dictionary
 
 
 def test_parse_reads_urgency_and_incremental() -> None:
@@ -145,3 +146,20 @@ def test_parse_reads_the_extremes_of_the_range() -> None:
 def test_a_later_invalid_urgency_cancels_an_earlier_valid_one() -> None:
     # The last value of a repeated key is the one the Dictionary keeps.
     assert parse_priority("u=1, u=9") == Priority(3, False)
+
+
+def test_parse_keeps_a_non_ascii_octet_instead_of_dropping_it() -> None:
+    assert parse_priority(b"u=1\xff") == Priority(3, False)
+    with pytest.raises(PriorityError) as caught:
+        parse_priority(b"u=1\xff", strict=True)
+    assert caught.value.offset == 3
+
+
+def test_parse_reads_a_byte_sequence_without_padding() -> None:
+    # RFC 9651 section 4.2.7: parsers should not fail when "=" padding is missing.
+    assert parse_params("x=:aGk:").extensions["x"] == b"hi"
+
+
+def test_parse_keeps_the_last_value_of_a_repeated_parameter() -> None:
+    members = parse_dictionary("x;a=1;a=2")
+    assert members["x"] == (True, {"a": 2})

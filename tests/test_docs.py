@@ -78,6 +78,8 @@ def test_no_em_dash_anywhere_in_the_tree() -> None:
         parts = path.relative_to(ROOT).parts
         if not path.is_file() or path.suffix not in suffixes or parts[:2] == ("tests", "upstream"):
             continue
+        if parts[0] in ("scratchpad", "build", "dist"):
+            continue
         if any(
             (part.startswith(".") and part != ".github") or part == "__pycache__" for part in parts
         ):

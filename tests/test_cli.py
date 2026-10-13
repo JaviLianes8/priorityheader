@@ -111,3 +111,8 @@ def test_response_and_request_cannot_be_combined(capsys: pytest.CaptureFixture[s
     with pytest.raises(SystemExit) as caught:
         _run(["--response", "--request", "u=1", "u=2"], capsys)
     assert caught.value.code == 2
+
+
+def test_a_head_value_after_a_tab_is_read(capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, _ = _run([], capsys, b"HTTP/2 200\r\npriority:\tu=1\r\n\r\n")
+    assert code == 0 and json.loads(out)["urgency"] == 1
