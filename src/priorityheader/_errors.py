@@ -57,7 +57,8 @@ def shown(value: object) -> str:
     The text never exceeds QUOTE_LIMIT characters plus an ellipsis, and building it cannot
     fail: an int too long for ``repr``, or an object whose ``repr``, ``len`` or slicing
     raises, is described by its type instead. Lengths and cuts go through the base type,
-    so a subclass cannot replace the caller's TypeError with an exception of its own.
+    for the value and for the text its ``repr`` returns, so a subclass can neither replace
+    the caller's TypeError with an exception of its own nor stretch the quotation.
     """
     try:
         return _quote(value)
@@ -78,7 +79,8 @@ def _quote(value: object) -> str:
         if int.bit_length(base) > 192:
             return f"an int of {int.bit_length(base)} bits"
     cut = isinstance(base, (str, bytes, bytearray)) and len(base) > QUOTE_LIMIT
-    text = repr(base[:QUOTE_LIMIT]) if cut else repr(value)  # type: ignore[index]
+    # A repr may return a str subclass that lies about its length, so it is cut as a plain str.
+    text = repr(base[:QUOTE_LIMIT]) if cut else str.__str__(repr(value))  # type: ignore[index]
     if cut or len(text) > QUOTE_LIMIT:
         return text[:QUOTE_LIMIT] + "..."
     return text

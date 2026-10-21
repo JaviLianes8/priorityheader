@@ -40,8 +40,13 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   is. In 0.2.0 a lower precision or extra traps there made `parse_priority`,
   `build_priority` and `PriorityParams` raise `decimal` signals such as
   `InvalidOperation` or `Rounded`.
-- A `str`, `bytes` or `int` subclass whose `len`, slicing or `repr` raises still gets the
-  documented `TypeError` or `PriorityError`, not the subclass's own exception.
+- A `str`, `bytes` or `int` subclass whose `len`, slicing, `__bytes__` or `repr` raises
+  still gets the documented result, not the subclass's own exception: `parse_priority`,
+  `parse_params` and `merge_priority` read the plain text or octets of such a field, and
+  the builders and frame functions raise their documented `TypeError` or
+  `PriorityError`. In 0.2.0 the parsers let the subclass's exception out.
+- An error message stays within its 60-character quote when a value's `repr` returns a
+  `str` subclass that misreports its length; in 0.2.0 the whole `repr` was quoted.
 
 ### Added
 

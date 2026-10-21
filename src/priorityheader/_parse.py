@@ -23,12 +23,13 @@ def field_text(header: object) -> str | None:
 
 
 def _line(value: object) -> str:
+    # The reader works on a plain copy, so a subclass's len, slicing or __bytes__ never runs.
     if isinstance(value, str):
-        return value
+        return str.__str__(value)
     if isinstance(value, (bytes, bytearray)):
         # Latin-1 maps every octet to one character, so a non-ASCII octet reaches the
         # structured field reader and fails there with its offset.
-        return bytes(value).decode("latin-1")
+        return bytes(memoryview(value)).decode("latin-1")
     raise TypeError(f"a Priority field is a str, bytes or a list of them, got {shown(value)}")
 
 
