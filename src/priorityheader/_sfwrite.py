@@ -84,8 +84,11 @@ def plain(value: object, *, inner: bool = False) -> object:
     so the writer only ever works on copies made through the base type slots. A tuple or
     list becomes an inner list; ``inner`` refuses one nested in it, at any depth.
     """
-    if isinstance(value, bool):
+    if value is True or value is False:
         return value
+    if isinstance(value, bool):
+        # Only an object that claims bool as its __class__ gets here (Mock(spec=bool)).
+        raise TypeError(f"cannot serialize {type(value).__name__} as a structured field item")
     if isinstance(value, Date):
         return Date(int.__int__(value))
     if isinstance(value, int):

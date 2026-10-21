@@ -28,7 +28,9 @@ def _field_lines(text: str) -> list[str]:
     bare values, so a broken value such as ``u:1`` is parsed (and refused by --strict)
     instead of being mistaken for a header.
     """
-    lines = [line.strip(_OWS) for line in text.splitlines()]
+    # Only LF ends a line, with the CR before it dropped (RFC 9112 section 2.2). Every other
+    # octet, a lone CR or the extra breaks str.splitlines() knows included, reaches the parser.
+    lines = [line.removesuffix("\r").strip(_OWS) for line in text.split("\n")]
     present = [line for line in lines if line]
     named = [match for match in map(_FIELD_LINE.match, present) if match]
     priority = [m.group(2).strip(_OWS) for m in named if m.group(1).lower() == "priority"]

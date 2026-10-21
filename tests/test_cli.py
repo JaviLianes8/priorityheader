@@ -116,3 +116,28 @@ def test_response_and_request_cannot_be_combined(capsys: pytest.CaptureFixture[s
 def test_a_head_value_after_a_tab_is_read(capsys: pytest.CaptureFixture[str]) -> None:
     code, out, _ = _run([], capsys, b"HTTP/2 200\r\npriority:\tu=1\r\n\r\n")
     assert code == 0 and json.loads(out)["urgency"] == 1
+
+
+# Only LF ends a field line (RFC 9112 section 2.2 lets a reader drop the CR before it); the
+# other line breaks str.splitlines() knows reach the parser and fail there.
+BREAKS = [b"\x0b", b"\x0c", b"\x1c", b"\x1d", b"\x1e", b"\x85", b"\r"]
+
+
+@pytest.mark.parametrize("octet", BREAKS, ids=lambda octet: octet.hex())
+def test_only_a_line_feed_ends_a_standard_input_line(
+    octet: bytes, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for body in (b"u=1" + octet + b"i\n", b"HTTP/1.1 200 OK\r\npriority: u=1" + octet + b"i\r\n"):
+        code, out, err = _run(["--strict"], capsys, body)
+        assert (code, out) == (1, ""), body
+        assert "offset 3" in err
+        code, out, _ = _run(["--response"], capsys, body)
+        assert code == 0 and json.loads(out)["urgency"] is None
+
+
+def test_optional_whitespace_around_a_standard_input_line_is_dropped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code, out, _ = _run(["--strict"], capsys, b"\tu=1 \t\r\n \ti\t\n")
+    assert code == 0
+    assert json.loads(out)["canonical"] == "u=1, i"

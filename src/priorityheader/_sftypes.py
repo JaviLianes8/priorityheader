@@ -17,7 +17,6 @@ class Token(str):
     """
 
     __slots__ = ()
-    __module__ = "priorityheader"
 
     def __repr__(self) -> str:
         return f"Token({str.__repr__(self)})"
@@ -34,7 +33,6 @@ class DisplayString(str):
     """
 
     __slots__ = ()
-    __module__ = "priorityheader"
 
     def __repr__(self) -> str:
         return f"DisplayString({str.__repr__(self)})"
@@ -51,7 +49,6 @@ class Date(int):
     """
 
     __slots__ = ()
-    __module__ = "priorityheader"
 
     def __repr__(self) -> str:
         return f"Date({int.__repr__(self)})"

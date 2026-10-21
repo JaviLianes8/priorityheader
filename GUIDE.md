@@ -133,6 +133,7 @@ into the connection error section 7 allows.
 | HTTP/3 payload that ends inside the element ID | `H3_FRAME_ERROR` |
 | HTTP/3 request variant naming a stream that is not a request stream | `H3_ID_ERROR` |
 | Broken value, `priority(strict=True)` on HTTP/2 / HTTP/3 | `PROTOCOL_ERROR` / `H3_GENERAL_PROTOCOL_ERROR` |
+| Field value given to an encoder that does not parse (`offset` set) | None |
 | Not exactly one PRIORITY_UPDATE frame, or an argument out of range | None |
 
 Stream state, stream limits and push ID limits belong to the connection and stay with
@@ -175,10 +176,12 @@ print(Priority(2, False)._replace(incremental=True))
 ## Errors
 
 `PriorityError` is a `ValueError`; `FrameError` is a `PriorityError`. `offset` is set when
-a strict parse stopped at a position, `code` when an RFC names the connection error.
+a value failed to parse at a position (a strict parse, or a value an encoder refuses),
+`code` when an RFC names the connection error.
 Messages quote at most 60 characters of any value, and building them never fails, so a
 huge or hostile input cannot turn an error into a different one. Wrong argument types
-raise `TypeError`.
+raise `TypeError`: `strict` takes only `True` or `False`, and the `target` of
+`encode_h3_update` only a `str`.
 
 ## Command line
 

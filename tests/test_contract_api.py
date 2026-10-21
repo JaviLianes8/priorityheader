@@ -38,8 +38,6 @@ SIGNATURES = {
     "target: 'Target' = 'stream') -> 'bytes'",
     "decode_h3_update": "(frame: 'bytes | bytearray | memoryview') -> 'PriorityUpdate'",
 }
-CLASSES = [Priority, PriorityParams, PriorityUpdate, PriorityError, FrameError]
-CLASSES += [Token, DisplayString, Date]
 
 
 @pytest.mark.parametrize("name", sorted(SIGNATURES))
@@ -65,12 +63,6 @@ def test_constants_have_their_rfc_values() -> None:
     assert (ph.MIN_URGENCY, ph.DEFAULT_URGENCY, ph.MAX_URGENCY) == (0, 3, 7)
     assert ph.H2_FRAME_TYPE == 0x10
     assert (ph.H3_REQUEST_FRAME_TYPE, ph.H3_PUSH_FRAME_TYPE) == (0xF0700, 0xF0701)
-
-
-@pytest.mark.parametrize("cls", CLASSES, ids=lambda cls: cls.__name__)
-def test_public_classes_live_on_the_package(cls: type) -> None:
-    assert cls.__module__ == "priorityheader"
-    assert getattr(ph, cls.__name__) is cls
 
 
 def test_error_hierarchy() -> None:

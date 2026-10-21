@@ -9,11 +9,13 @@ from __future__ import annotations
 import pytest
 
 from priorityheader import (
+    Date,
     FrameError,
     Priority,
     PriorityError,
     PriorityParams,
     Token,
+    build_params,
     build_priority,
     decode_h2_update,
     decode_h3_update,
@@ -27,6 +29,12 @@ from priorityheader import (
     [
         ('a=%"%C3%A9"', 5),  # RFC 9651 section 4.2.10: escapes are lower-case hex
         ('a=(1"x")', 4),  # section 4.2.1.2: inner list members are separated by spaces
+        ("x=(\t1)", 3),  # section 4.2.1.2: only SP, never HTAB, inside an inner list
+        ("x=(1\t2)", 4),
+        ("x=(1 \t)", 5),
+        ('a=%"%ff"', 8),  # section 4.2.10: a Display String must decode as UTF-8
+        ("a=@1.5", 6),  # section 4.2.9: a Date is an Integer
+        ("aB=1", 1),  # section 4.2.3.3: a key holds no upper-case letter
     ],
 )
 def test_strict_parse_refuses_grammar_breaks_at_their_offset(text: str, offset: int) -> None:
@@ -56,6 +64,24 @@ def test_the_writer_takes_the_whole_integer_range_and_nothing_more() -> None:
     for value in (-limit - 1, limit + 1):
         with pytest.raises(PriorityError, match="outside the Integer range"):
             build_priority(extensions={"a": value})
+
+
+def test_the_writer_takes_the_whole_date_range_and_nothing_more() -> None:
+    limit = 999_999_999_999_999
+    built = build_priority(extensions={"a": Date(-limit), "b": Date(limit)})
+    assert built == f"a=@-{limit}, b=@{limit}"
+    for value in (-limit - 1, limit + 1, 10**16):
+        with pytest.raises(PriorityError, match="outside the Integer range"):
+            build_priority(extensions={"a": Date(value)})
+        with pytest.raises(PriorityError, match="outside the Integer range"):
+            PriorityParams(extensions={"a": (Date(value),)})
+
+
+def test_a_repeated_key_keeps_its_first_place_and_its_last_value() -> None:
+    # Section 4.2.2: a repeated key overwrites the value in place.
+    params = parse_params("a=1, b=2, a=3", strict=True)
+    assert list(params.extensions.items()) == [("a", 3), ("b", 2)]
+    assert build_params(params) == "a=3, b=2"
 
 
 @pytest.mark.parametrize("char", ["\x7f", "\x1f", "\t", "\x00", "\xe9"])

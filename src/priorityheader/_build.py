@@ -55,7 +55,8 @@ def build_params(params: PriorityParams) -> str:
     Use it for a response, where an absent member means "keep the client value" and so
     ``u=3`` has to be written to move a client back to the default urgency. A false
     incremental flag is written as ``i=?0``. TypeError when ``params`` is not a
-    PriorityParams.
+    PriorityParams. A subclass is written from the members the base class stores, checked
+    again, never from properties it overrides.
 
     >>> from priorityheader import PriorityParams, build_params
     >>> build_params(PriorityParams(urgency=3, incremental=False))
@@ -65,7 +66,21 @@ def build_params(params: PriorityParams) -> str:
     """
     if not isinstance(params, PriorityParams):
         raise TypeError(f"params must be PriorityParams, got {shown(params)}")
-    return _render(params.urgency, params.incremental, dict(params.extensions))
+    checked = _stored(params)
+    return _render(checked.urgency, checked.incremental, dict(checked.extensions))
+
+
+def _stored(params: PriorityParams) -> PriorityParams:
+    # The base slot descriptors read what __init__ stored, whatever a subclass overrides;
+    # building a fresh base instance from it runs every check again.
+    slots = vars(PriorityParams)
+    try:
+        urgency = slots["_urgency"].__get__(params)
+        incremental = slots["_incremental"].__get__(params)
+        extensions = slots["_extensions"].__get__(params)
+    except AttributeError:
+        raise TypeError(f"params is not an initialised PriorityParams: {shown(params)}") from None
+    return PriorityParams(urgency, incremental, extensions)
 
 
 def _render(

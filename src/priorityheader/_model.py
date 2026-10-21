@@ -29,10 +29,15 @@ def check_urgency(urgency: object) -> int:
     return value
 
 
+def check_flag(value: object, what: str) -> bool:
+    # Identity, not isinstance: an object can claim bool as its __class__ (Mock(spec=bool)).
+    if value is not True and value is not False:
+        raise TypeError(f"{what} must be a bool, got {shown(value)}")
+    return value is True
+
+
 def check_incremental(incremental: object) -> bool:
-    if not isinstance(incremental, bool):
-        raise TypeError(f"incremental must be a bool, got {shown(incremental)}")
-    return incremental
+    return check_flag(incremental, "incremental")
 
 
 _P = TypeVar("_P", bound="Priority")
@@ -60,7 +65,6 @@ class Priority(_PriorityFields):
     """
 
     __slots__ = ()
-    __module__ = "priorityheader"
 
     def __new__(
         cls, urgency: int = DEFAULT_URGENCY, incremental: bool = DEFAULT_INCREMENTAL
@@ -111,7 +115,6 @@ class PriorityParams:
     """
 
     __slots__ = ("_extensions", "_incremental", "_urgency")
-    __module__ = "priorityheader"
 
     def __init__(
         self,
@@ -186,5 +189,5 @@ _KINDS = frozenset({Token, DisplayString, Date, bool, int, Decimal, str, bytes})
 def _tag(value: object) -> object:
     if isinstance(value, tuple):
         return tuple(_tag(item) for item in value)
-    kind = next(kind for kind in type(value).__mro__ if kind in _KINDS)
+    kind = next((kind for kind in type(value).__mro__ if kind in _KINDS), type(value))
     return (kind.__name__, value)

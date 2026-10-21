@@ -5,7 +5,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from ._errors import PriorityError, plain_octets, shown
-from ._model import MAX_URGENCY, MIN_URGENCY, ExtensionValue, Priority, PriorityParams
+from ._model import (
+    MAX_URGENCY,
+    MIN_URGENCY,
+    ExtensionValue,
+    Priority,
+    PriorityParams,
+    check_flag,
+)
 from ._sfdict import parse_dictionary
 
 #: What the parsers accept: one field value, its octets, the values of several field lines,
@@ -42,7 +49,8 @@ def parse_params(header: FieldInput, *, strict: bool = False) -> PriorityParams:
     ``strict`` is true. Unknown members go to ``extensions``; a ``u`` that is not an
     Integer in 0..7 and an ``i`` that is not a Boolean are ignored in both modes, as RFC
     9218 section 4 requires. Several field lines are joined with ", " first, so offsets
-    count in the joined text. A wrong input type raises TypeError.
+    count in the joined text. A wrong input type, or a ``strict`` that is not a bool, raises
+    TypeError.
 
     >>> from priorityheader import parse_params
     >>> parse_params("u=1")
@@ -50,6 +58,7 @@ def parse_params(header: FieldInput, *, strict: bool = False) -> PriorityParams:
     >>> parse_params(["i", "hint=?1"])
     PriorityParams(urgency=None, incremental=True, extensions={'hint': True})
     """
+    strict = check_flag(strict, "strict")
     text = field_text(header)
     if text is None:
         return PriorityParams()

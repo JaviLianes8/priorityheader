@@ -1,8 +1,8 @@
 """Every docstring example of the public API runs, wherever the collector would miss it.
 
-Public classes report ``priorityheader`` as their module, so pytest's doctest collector
-skips them in their private module and skips their methods in the package. This test
-walks ``__all__`` itself and pins how many examples it ran, so a skipped one fails.
+pytest's doctest collector finds an example through the module that defines it; this test
+walks ``__all__`` itself and pins how many examples it ran, so an example that stops being
+collected, or is lost, fails.
 """
 
 from __future__ import annotations

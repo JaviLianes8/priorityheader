@@ -41,15 +41,19 @@ def encode_h3_update(element_id: int, field_value: str, *, target: Target = "str
 
     ``target`` is ``"stream"`` (type 0xF0700, ``element_id`` a client-initiated
     bidirectional stream ID, so a multiple of 4) or ``"push"`` (type 0xF0701, a push ID).
-    Raises FrameError for an unknown target, an ID out of range or of the wrong kind, or a
-    value that does not parse, and TypeError for a wrong type.
+    Raises FrameError for an unknown target name, an ID out of range or of the wrong kind,
+    or a value that does not parse, and TypeError for a wrong type (a ``target`` that is not
+    a str included).
 
     >>> from priorityheader import encode_h3_update
     >>> encode_h3_update(4, "u=1").hex()
     '800f07000404753d31'
     """
-    if target not in ("stream", "push"):
+    if not isinstance(target, str):
+        raise TypeError(f"target must be a str, got {shown(target)}")
+    if str.__str__(target) not in ("stream", "push"):
         raise FrameError(f"target must be 'stream' or 'push', got {shown(target)}")
+    target = "stream" if str.__str__(target) == "stream" else "push"
     element = check_id(element_id, 0, VARINT_MAX, "element_id")
     if target == "stream" and element % 4:
         raise FrameError(f"{element} is not a client-initiated bidirectional stream")

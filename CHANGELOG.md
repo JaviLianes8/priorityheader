@@ -19,8 +19,24 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   `_make`: an urgency outside 0..7 raises `PriorityError`, an urgency that is not an
   `int` or a flag that is not a `bool` raises `TypeError`. In 0.2.0 `Priority(9, "yes")`
   was accepted.
-- `encode_h3_update` raises `FrameError` (still a `ValueError`) for a `target` other than
-  `"stream"` or `"push"`, instead of a plain `ValueError`.
+- `encode_h3_update` raises `FrameError` (still a `ValueError`) for a `target` name other
+  than `"stream"` or `"push"`, instead of a plain `ValueError`, and `TypeError` for a
+  `target` that is not a `str` (in 0.2.0 `None` or `5` raised `ValueError`). A `str`
+  subclass is compared by its text, not by its own `__eq__`.
+- The `strict` argument of `parse_priority`, `parse_params` and `PriorityUpdate.priority`
+  takes only `True` or `False`; anything else raises `TypeError`. In 0.2.0 any truthy
+  object, such as `"no"`, turned strict mode on.
+- An object that claims to be a `bool` without being `True` or `False` (for example
+  `unittest.mock.Mock(spec=bool)`) raises `TypeError` as an incremental flag or an
+  extension value. In 0.2.0 it was stored as it was, and comparing or hashing the
+  `PriorityParams` that held it raised `RuntimeError`.
+- `build_params` writes a `PriorityParams` subclass from the members the base class stores,
+  checked again, so a subclass that overrides `urgency`, `incremental` or `extensions`
+  can no longer make it write an invalid value.
+- The command line ends a standard input line at LF only (dropping a CR before it). In
+  0.2.0 the vertical tab, form feed, 0x1C to 0x1E, 0x85 and a lone CR also ended a line,
+  so `--strict` accepted such a value from standard input and a `Priority` line of a
+  message head was cut short.
 - Error messages quote at most 60 characters of the value they mention. In 0.2.0 an
   oversized key, string or type error quoted the whole value, and an integer of more than
   4,300 digits (as an urgency, an extension value or a frame ID) raised Python's own
@@ -28,7 +44,6 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   `FrameError`.
 - `Token`, `DisplayString` and `Date` show their type in `repr` (`Token('a')` instead of
   `'a'`), so `PriorityParams` reprs tell a Token from a String.
-- Public classes report `priorityheader` as their module.
 - `PriorityParams.over` raises `TypeError` for a `base` that is not a `Priority`; in
   0.2.0 a tuple or a string raised `AttributeError`.
 - `build_priority` and `PriorityParams` raise `TypeError` for any `extensions` that is
@@ -54,10 +69,9 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
 
 - `PriorityParams` can be pickled and copied; in 0.2.0 `pickle`, `copy.copy` and
   `copy.deepcopy` raised `TypeError`.
-- `FrameError` and `PriorityError` survive `pickle` and `copy` with their `code` and
-  `offset`; in 0.2.0 unpickling a `FrameError` that had a code raised `TypeError`.
 - `FrameError` takes an `offset`, set when an encoder refuses a value that does not parse
-  and by `PriorityUpdate.priority(strict=True)`.
+  and by `PriorityUpdate.priority(strict=True)`; it survives `pickle` and `copy` with
+  `code` and `offset`, as `PriorityError` does.
 - Docstrings with examples that run as tests, and a GUIDE.
 
 ## [0.2.0] - 2026-10-20

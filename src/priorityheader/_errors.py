@@ -21,8 +21,6 @@ class PriorityError(ValueError):
     4 trailing comma at offset 4
     """
 
-    __module__ = "priorityheader"
-
     def __init__(self, message: str, offset: int | None = None) -> None:
         super().__init__(message)
         self.offset = offset
@@ -33,8 +31,9 @@ class FrameError(PriorityError):
 
     ``code`` names the connection error RFC 9218, RFC 9113 or RFC 9114 assigns to the
     problem (for example ``"PROTOCOL_ERROR"`` or ``"H3_ID_ERROR"``), or is None when the
-    bytes are not a single PRIORITY_UPDATE frame at all or an argument is out of range.
-    ``offset`` is set when the frame carries a value that fails a strict parse.
+    bytes are not a single PRIORITY_UPDATE frame at all, an argument is out of range, or an
+    encoder is given a field value that does not parse. ``offset`` is set when a value
+    fails to parse: a frame's value read with ``priority(strict=True)``, or an encoder's.
 
     >>> from priorityheader import FrameError, decode_h2_update
     >>> try:
@@ -43,8 +42,6 @@ class FrameError(PriorityError):
     ...     print(error.code)
     PROTOCOL_ERROR
     """
-
-    __module__ = "priorityheader"
 
     def __init__(self, message: str, code: str | None = None, offset: int | None = None) -> None:
         super().__init__(message, offset)

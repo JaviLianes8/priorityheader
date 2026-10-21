@@ -62,9 +62,6 @@ class PriorityUpdate(NamedTuple):
             raise FrameError(message, code, error.offset) from None
 
 
-PriorityUpdate.__module__ = "priorityheader"
-
-
 def value_octets(field_value: object) -> bytes:
     """Return the octets of a Priority Field Value that parses, for a frame payload."""
     if not isinstance(field_value, str):

@@ -34,12 +34,12 @@ print(parse_priority("u=9, i, vendor-hint=?1"))
 print(parse_priority("u=1, i=?2"))
 # Priority(urgency=3, incremental=False)
 
-# Several field lines, or the raw octets of a frame, are read too.
+# Several field lines, or a field value as bytes, are read too.
 print(parse_priority(["u=2", b"i"]))
 # Priority(urgency=2, incremental=True)
 ```
 
-`parse_priority(value, strict=True)` raises `PriorityError` instead of falling back when
+`parse_priority(header, strict=True)` raises `PriorityError` instead of falling back when
 the field does not parse; the error carries the `offset` where reading stopped. Out of
 range and mistyped members are still ignored, because RFC 9218 says a receiver must ignore
 them once the dictionary parses.

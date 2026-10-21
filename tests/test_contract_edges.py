@@ -40,3 +40,22 @@ def test_build_params_takes_only_priority_params(value: object) -> None:
     with pytest.raises(TypeError, match="params must be PriorityParams"):
         build_params(value)  # type: ignore[arg-type]
     assert build_params(PriorityParams(1, True)) == "u=1, i"
+
+
+class _ForgedReprBytes(bytes):
+    def __repr__(self) -> str:
+        return "<forged message text> " + "z" * 100
+
+
+class _ForgedReprBytearray(bytearray):
+    def __repr__(self) -> str:
+        return "<forged message text> " + "z" * 100
+
+
+@pytest.mark.parametrize("kind", [_ForgedReprBytes, _ForgedReprBytearray])
+def test_a_long_bytes_value_is_quoted_from_its_octets_never_its_repr(kind: type) -> None:
+    with pytest.raises(TypeError) as caught:
+        Priority(kind(b"x" * 100))
+    prefix = "bytearray(b'" if kind is _ForgedReprBytearray else "b'"
+    expected = (prefix + "x" * 100)[:60] + "..."
+    assert str(caught.value) == f"urgency must be an int, got {expected}"

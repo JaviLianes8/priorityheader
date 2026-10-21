@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import gc
 import io
 import json
 import random
@@ -131,17 +132,31 @@ SHAPES: dict[str, Callable[[int], str]] = {
 }
 
 
-def _seconds(text: str) -> float:
-    best = float("inf")
-    for _ in range(3):
-        start = time.perf_counter()
-        parse_params(text)
-        best = min(best, time.perf_counter() - start)
+def _best_seconds(*texts: str) -> list[float]:
+    # CPU time of this process per call, not the wall clock, so load from other processes
+    # does not count. The process clock ticks coarsely (15.6 ms on Windows), so each sample
+    # repeats the call for at least 0.2 s. The inputs are measured in turn, with the
+    # collector paused, and the best of three samples is kept for each.
+    best = [float("inf")] * len(texts)
+    enabled = gc.isenabled()
+    gc.disable()
+    try:
+        for _ in range(3):
+            for index, text in enumerate(texts):
+                calls, start, spent = 0, time.process_time(), 0.0
+                while spent < 0.2:
+                    parse_params(text)
+                    calls += 1
+                    spent = time.process_time() - start
+                best[index] = min(best[index], spent / calls)
+    finally:
+        if enabled:
+            gc.enable()
     return best
 
 
 @pytest.mark.parametrize("shape", sorted(SHAPES))
 def test_parsing_time_grows_linearly(shape: str) -> None:
-    small, large = SHAPES[shape](20_000), SHAPES[shape](80_000)
-    # Four times the input may take at most about four times as long; quadratic would be 16.
-    assert _seconds(large) < 8 * _seconds(small) + 0.05, shape
+    small, large = _best_seconds(SHAPES[shape](20_000), SHAPES[shape](80_000))
+    # Four times the input takes about four times as long; quadratic growth would be 16.
+    assert large < 10 * small, shape
