@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 5 findings (lenses a, c, e) fixed in 150bbe0
+- [ ] Five QA lenses (item 19): round 6 findings (lenses a, c, e) fixed in 0d74275
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -104,6 +104,8 @@ lenient agree, bytes read like text); 30,000 build round trips in both forms; 30
 merges against a member-by-member model; 15,000 frame round trips and random bytes into
 both decoders (only `FrameError`); 1,500 command lines (exit 0 with JSON or 1 with a short
 message). Fourteen hostile shapes timed at 20,000 and 80,000 units: linear.
+`tests/test_cli_folds.py` times the command line's head reader on 20,000 and 80,000 folded
+lines: linear, and no slower than the same count of unfolded `Priority` lines.
 `tests/test_contract_api.py` covers 100,000 character and 5,000 digit inputs and an object
 whose `repr` raises, on every error path.
 
@@ -336,6 +338,39 @@ fetched sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
 `mypy --strict src tests` and `pytest` (604 tests, the 586 of round 4 and 18 new) all
 exit 0.
 
+### Round 6 (on d76d240)
+
+Lens a re-checked N1 and lens c re-checked F1 to F4: all fixed. Lens e re-ran its
+mutation round. The findings below are fixed in 0d74275, none is disputed. Lens a's
+EVIDENCE item is its evidence notes, not a defect, and needs no change.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a N2, c F5 | the obs-fold join of 150bbe0 rebuilt the whole field line for every continuation, so the standard input reader took quadratic time in the number of folds (400,000 folds: 71.8 s in the reader, 63.5 s end to end) | `_cli._unfold` collects the pieces of each field line in a list and joins them once; the result is the same (a seeded differential of 200,000 random line lists against the old join, compared after the OWS strip the reader applies: 0 mismatches). 400,000 folds now take 0.14 s in the reader and 0.9 s end to end with `--strict` | `test_reading_folds_takes_linear_time`: 80,000 folds take under 10 times as long as 20,000 (measured 3.9 to 4.1, was 13 to 15) and under 3 times as long as 80,000 unfolded `Priority` lines (measured 0.3) |
+| e F1-M03-M04 | nothing pinned that only SP and HTAB start a fold | contract added | `test_only_a_space_or_a_tab_starts_a_fold` (CR, VT, FF, 0x1C, 0x1F, 0x85 and 0xA0 after a `Priority` line: strict exit 0, urgency 1) |
+| e F2-M36-M37 | nothing pinned that the join trims only SP and HTAB | contract added | `test_a_fold_trims_only_spaces_and_tabs` (VT, FF and 0x85 at the end of the folded line and at either end of the continuation: strict exit 1 at offsets 3, 4 and 7) |
+| e F3-M16 | nothing pinned that the OWS before the line break belongs to the obs-fold | contract added | `test_whitespace_before_the_line_break_belongs_to_the_fold` (SP, HTAB and mixed before the break inside a string: `x="a b"`; before a bare continuation: strict exit 1 at offset 4) |
+| e F4-M42 | nothing pinned that a blank continuation keeps the fold going | contract added | `test_a_blank_continuation_does_not_end_the_fold` (SP, HTAB and mixed blank lines: `u=1, i` read whole, `u=1 i` refused at offset 4) |
+| e F5-M25 | nothing pinned that the field name is exactly `priority` | contract added | `test_only_the_priority_field_name_counts` (`priority-hint`, `priorityx`, `xpriority`, `priorities`, `priorit`: the defaults) |
+
+The CHANGELOG fold entry now says that only spaces and tabs start a fold or are dropped
+around the break and that a blank one adds nothing (the same behaviour as 150bbe0, now
+pinned). The timing contract failed on d76d240 before the fix (80,000 folds took 0.48 s
+to 0.50 s against 0.034 s to 0.036 s for 20,000); the other new contracts pin behaviour
+that was already right and pass there. On the fixed code each of these mutants of
+`_cli.py` makes `tests/test_cli_folds.py` fail: M03 (CR starts a fold), M04
+(`isspace()`), M36 (`rstrip()` on the folded line), M37 (`strip()` on the continuation),
+M16 (no `rstrip` before the join), M42 (a blank line ends the fold), M25
+(`startswith("priority")`), keeping blank pieces in the join, and joining again on every
+fold (the quadratic form).
+
+Gates at 0d74275 on another machine (CPython 3.14.6, clone of a bundle of the commit,
+fetched sources, http-sf 1.4.0, hyperframe 6.1.0, aioquic 1.7.0, `PRIORITYHEADER_E2E=1`
+and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`, `ruff check .`,
+`mypy --strict src`, `mypy --strict src tests` and `pytest` (632 passed, the 604 of round
+5 and 28 new, no skips) all exit 0. The timing contract then ran six more times there:
+six passes.
+
 ### Disputed findings
 
-None in round 1, round 2, round 3, round 4 or round 5.
+None in round 1, round 2, round 3, round 4, round 5 or round 6.
