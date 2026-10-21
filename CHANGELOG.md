@@ -40,8 +40,10 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   message head was cut short.
 - In a message head on standard input, a line that starts with a space or tab continues
   the field line before it (an obs-fold, RFC 9112 section 5.2) and is joined to it with
-  one space, so a folded `Priority` value is read whole. Such a line that follows no
-  field line, for example right after the status line, is no field line and is dropped.
+  one space, so a folded `Priority` value is read whole. Only spaces and tabs start such a
+  line or are dropped around the break, and a blank one adds nothing. Such a line that
+  follows no field line, for example right after the status line, is no field line and is
+  dropped.
   In 0.2.0 each folded line was read on its own: the continuation of a `Priority` line
   was lost, so `--strict` accepted the value, and an indented `priority:` line counted.
 - Error messages quote at most 60 characters of the value they mention. In 0.2.0 an

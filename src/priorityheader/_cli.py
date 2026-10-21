@@ -46,17 +46,26 @@ def _priority_values(lines: list[str]) -> list[str]:
 def _unfold(lines: list[str]) -> list[str]:
     # In a head a line that starts with SP or HTAB continues the field line before it, and
     # the obs-fold is replaced by one SP (RFC 9112 section 5.2) so the value is read whole.
-    # Such a line after anything else is no field line and is dropped (section 2.2).
-    unfolded: list[str] = []
+    # Such a line after anything else is no field line and is dropped (section 2.2). The
+    # pieces of a field line are joined once at the end, so many folds take linear time.
+    unfolded: list[list[str]] = []
     folding = False
     for line in lines:
         if line[:1] in (" ", "\t"):
             if folding:
-                unfolded[-1] = f"{unfolded[-1].rstrip(_OWS)} {line.strip(_OWS)}"
+                unfolded[-1].append(line.strip(_OWS))
             continue
-        unfolded.append(line)
+        unfolded.append([line])
         folding = _FIELD_LINE.match(line) is not None
-    return unfolded
+    return [_join(pieces) for pieces in unfolded]
+
+
+def _join(pieces: list[str]) -> str:
+    # The OWS before each line break is part of the obs-fold, and a blank continuation
+    # adds nothing, so every fold becomes exactly one SP.
+    if len(pieces) == 1:
+        return pieces[0]
+    return " ".join([pieces[0].rstrip(_OWS), *filter(None, pieces[1:])])
 
 
 def _report(params: PriorityParams, *, response: bool) -> dict[str, object]:
