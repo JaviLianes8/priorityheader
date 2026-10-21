@@ -45,7 +45,7 @@ def build_priority(
     return _render(
         None if urgency == DEFAULT_URGENCY else urgency,
         True if incremental else None,
-        check_extensions(extensions or {}),
+        check_extensions({} if extensions is None else extensions),
     )
 
 

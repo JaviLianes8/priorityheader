@@ -55,20 +55,30 @@ def shown(value: object) -> str:
     """Return a short printable quotation of ``value`` for an error message.
 
     The text never exceeds QUOTE_LIMIT characters plus an ellipsis, and building it cannot
-    fail: an int too long for ``repr`` or an object whose ``repr`` raises is described by
-    its type instead.
+    fail: an int too long for ``repr``, or an object whose ``repr``, ``len`` or slicing
+    raises, is described by its type instead. Lengths and cuts go through the base type,
+    so a subclass cannot replace the caller's TypeError with an exception of its own.
     """
-    if isinstance(value, (str, bytes, bytearray)) and len(value) > QUOTE_LIMIT:
-        value = value[:QUOTE_LIMIT]
-        cut = True
-    else:
-        cut = False
-    if isinstance(value, int) and not isinstance(value, bool) and value.bit_length() > 192:
-        return f"an int of {value.bit_length()} bits"
     try:
-        text = repr(value)
+        return _quote(value)
     except Exception:
         return f"a {type(value).__name__} value"
+
+
+def _quote(value: object) -> str:
+    base: object = value
+    if isinstance(value, str):
+        base = str.__str__(value)
+    elif isinstance(value, bytes):
+        base = bytes(memoryview(value))
+    elif isinstance(value, bytearray):
+        base = bytearray(memoryview(value))
+    elif isinstance(value, int) and not isinstance(value, bool):
+        base = int.__int__(value)
+        if int.bit_length(base) > 192:
+            return f"an int of {int.bit_length(base)} bits"
+    cut = isinstance(base, (str, bytes, bytearray)) and len(base) > QUOTE_LIMIT
+    text = repr(base[:QUOTE_LIMIT]) if cut else repr(value)  # type: ignore[index]
     if cut or len(text) > QUOTE_LIMIT:
         return text[:QUOTE_LIMIT] + "..."
     return text

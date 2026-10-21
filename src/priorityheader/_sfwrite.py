@@ -4,13 +4,21 @@ from __future__ import annotations
 
 import base64
 from collections.abc import Mapping, Sequence
-from decimal import ROUND_HALF_EVEN, Decimal
+from decimal import ROUND_HALF_EVEN, Context, Decimal
 
 from ._errors import PriorityError, shown
 from ._sftypes import ALPHA, KEY_CHARS, LCALPHA, TOKEN_CHARS, BareItem, Date, DisplayString, Token
 
 INTEGER_LIMIT = 999_999_999_999_999
-_DECIMAL_LIMIT = 999_999_999_999
+_DECIMAL_LIMIT = Decimal("999999999999.999")
+# Rounding uses this context, never the caller's thread-local one, so a lower precision or
+# extra traps there cannot change a result or raise a decimal signal out of the library.
+_CONTEXT = Context(prec=40, rounding=ROUND_HALF_EVEN, traps=[])
+
+
+def to_three_places(value: Decimal) -> Decimal:
+    """Return a finite ``value`` rounded half even to three decimal places."""
+    return value.quantize(Decimal("0.001"), context=_CONTEXT)
 
 
 def serialize_key(key: object) -> str:
@@ -41,8 +49,8 @@ def _integer(value: int) -> str:
 def _decimal(value: Decimal) -> str:
     if not value.is_finite() or value.adjusted() >= 12:
         raise PriorityError(f"{shown(value)} is not a Decimal of at most 12 integer digits")
-    rounded = value.quantize(Decimal("0.001"), rounding=ROUND_HALF_EVEN)
-    if abs(rounded) > _DECIMAL_LIMIT + Decimal("0.999"):
+    rounded = to_three_places(value)
+    if rounded.copy_abs() > _DECIMAL_LIMIT:
         raise PriorityError(f"{shown(value)} has more than 12 integer digits")
     text = f"{rounded:f}".rstrip("0")
     text = text + "0" if text.endswith(".") else text
@@ -69,11 +77,12 @@ def _display(value: str) -> str:
     return '%"' + "".join(out) + '"'
 
 
-def plain(value: object) -> object:
+def plain(value: object, *, inner: bool = False) -> object:
     """Return ``value`` as an exact library type, dropping any subclass behaviour.
 
     A subclass could override ``__str__`` or ``replace`` and smuggle text past the checks,
-    so the writer only ever works on copies made through the base type slots.
+    so the writer only ever works on copies made through the base type slots. A tuple or
+    list becomes an inner list; ``inner`` refuses one nested in it, at any depth.
     """
     if isinstance(value, bool):
         return value
@@ -91,8 +100,8 @@ def plain(value: object) -> object:
         return str.__str__(value)
     if isinstance(value, bytes):
         return bytes(memoryview(value))
-    if isinstance(value, (tuple, list)):
-        return tuple(plain(item) for item in value)
+    if isinstance(value, (tuple, list)) and not inner:
+        return tuple(plain(item, inner=True) for item in value)
     raise TypeError(f"cannot serialize {type(value).__name__} as a structured field item")
 
 

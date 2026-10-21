@@ -107,8 +107,8 @@ def parse_bare_item(r: Reader) -> BareItem:
 
 
 def _number(r: Reader) -> int | Decimal:
-    sign = -1 if r.peek() == "-" else 1
-    if sign < 0:
+    sign = r.peek() if r.peek() == "-" else ""
+    if sign:
         r.pos += 1
     if not r.peek() or r.peek() not in DIGITS:
         raise r.fail("a number needs a digit")
@@ -119,7 +119,7 @@ def _number(r: Reader) -> int | Decimal:
     if r.peek() != ".":
         if len(whole) > 15:
             raise r.fail("an Integer has at most 15 digits")
-        return sign * int(whole)
+        return int(sign + whole)
     r.pos += 1
     begin = r.pos
     while r.peek() and r.peek() in DIGITS:
@@ -127,7 +127,8 @@ def _number(r: Reader) -> int | Decimal:
     fraction = r.text[begin : r.pos]
     if len(whole) > 12 or not fraction or len(fraction) > 3:
         raise r.fail("a Decimal has 1 to 12 digits, a point and 1 to 3 digits")
-    return sign * Decimal(f"{whole}.{fraction}")
+    # Built from text, so the caller's decimal context can neither round nor trap it.
+    return Decimal(f"{sign}{whole}.{fraction}")
 
 
 def _string(r: Reader) -> str:

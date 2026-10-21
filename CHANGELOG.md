@@ -29,16 +29,31 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
 - `Token`, `DisplayString` and `Date` show their type in `repr` (`Token('a')` instead of
   `'a'`), so `PriorityParams` reprs tell a Token from a String.
 - Public classes report `priorityheader` as their module.
+- `PriorityParams.over` raises `TypeError` for a `base` that is not a `Priority`; in
+  0.2.0 a tuple or a string raised `AttributeError`.
+- `build_priority` and `PriorityParams` raise `TypeError` for any `extensions` that is
+  not a mapping. In 0.2.0 an empty or false value such as `0`, `""` or `[]` was read as
+  no extensions.
+- A tuple or list nested inside an inner list raises `TypeError` at any depth. In 0.2.0 a
+  deeply nested or self-referencing list raised `RecursionError`.
+- Decimals are parsed and written the same way whatever the caller's `decimal` context
+  is. In 0.2.0 a lower precision or extra traps there made `parse_priority`,
+  `build_priority` and `PriorityParams` raise `decimal` signals such as
+  `InvalidOperation` or `Rounded`.
+- A `str`, `bytes` or `int` subclass whose `len`, slicing or `repr` raises still gets the
+  documented `TypeError` or `PriorityError`, not the subclass's own exception.
 
 ### Added
 
 - `PriorityParams` can be pickled and copied; in 0.2.0 `pickle`, `copy.copy` and
   `copy.deepcopy` raised `TypeError`.
+- `FrameError` and `PriorityError` survive `pickle` and `copy` with their `code` and
+  `offset`; in 0.2.0 unpickling a `FrameError` that had a code raised `TypeError`.
 - `FrameError` takes an `offset`, set when an encoder refuses a value that does not parse
   and by `PriorityUpdate.priority(strict=True)`.
 - Docstrings with examples that run as tests, and a GUIDE.
 
-## [0.2.0]
+## [0.2.0] - 2026-10-20
 
 ### Changed
 
@@ -64,8 +79,14 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
 - Structured field types `Token`, `Date` and `DisplayString` for extension values.
 - `priorityheader` command line and `python -m priorityheader`.
 
-## [0.1.0]
+## [0.1.0] - 2026-10-12
 
-- First release: parse and build the HTTP Priority header (RFC 9218), with the
-  `u` urgency and `i` incremental members read from and written to an RFC 8941
-  structured-field dictionary, defaults applied on parse and omitted on build.
+- First release, committed as 1574a93 and not uploaded to PyPI: parse and build the HTTP
+  Priority header (RFC 9218), with the `u` urgency and `i` incremental members read from
+  and written to an RFC 8941 structured-field dictionary, defaults applied on parse and
+  omitted on build.
+
+[Unreleased]: https://github.com/JaviLianes8/priorityheader/commits/main
+[1.0.0]: https://github.com/JaviLianes8/priorityheader/compare/5477f81...main
+[0.2.0]: https://github.com/JaviLianes8/priorityheader/compare/1574a93...5477f81
+[0.1.0]: https://github.com/JaviLianes8/priorityheader/commit/1574a93

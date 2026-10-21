@@ -9,7 +9,7 @@ from typing import Any, NamedTuple, TypeVar, cast
 
 from ._errors import PriorityError, shown
 from ._sftypes import Date, DisplayString, Token
-from ._sfwrite import plain, serialize_key, serialize_member
+from ._sfwrite import plain, serialize_key, serialize_member, to_three_places
 
 MIN_URGENCY = 0
 MAX_URGENCY = 7
@@ -39,8 +39,8 @@ _P = TypeVar("_P", bound="Priority")
 
 
 class _PriorityFields(NamedTuple):
-    urgency: int
-    incremental: bool
+    urgency: int = DEFAULT_URGENCY
+    incremental: bool = DEFAULT_INCREMENTAL
 
 
 class Priority(_PriorityFields):
@@ -85,7 +85,7 @@ def check_extensions(extensions: object) -> dict[str, ExtensionValue]:
         # Serializing proves the value is representable, so building can never fail later.
         serialize_member(value)
         for item in value if isinstance(value, tuple) else (value,):
-            if isinstance(item, Decimal) and item != item.quantize(Decimal("0.001")):
+            if isinstance(item, Decimal) and item != to_three_places(item):
                 raise PriorityError(f"{shown(item)} has more than three decimal places")
         checked[name] = cast(ExtensionValue, value)
     return checked
@@ -121,7 +121,9 @@ class PriorityParams:
     ) -> None:
         self._urgency = None if urgency is None else check_urgency(urgency)
         self._incremental = None if incremental is None else check_incremental(incremental)
-        self._extensions = MappingProxyType(check_extensions(extensions or {}))
+        self._extensions = MappingProxyType(
+            check_extensions({} if extensions is None else extensions)
+        )
 
     @property
     def urgency(self) -> int | None:
@@ -139,7 +141,12 @@ class PriorityParams:
         return self._extensions
 
     def over(self, base: Priority) -> Priority:
-        """Return ``base`` with every member present here replacing the one in ``base``."""
+        """Return ``base`` with every member present here replacing the one in ``base``.
+
+        TypeError when ``base`` is not a Priority.
+        """
+        if not isinstance(base, Priority):
+            raise TypeError(f"base must be a Priority, got {shown(base)}")
         return Priority(
             base.urgency if self._urgency is None else self._urgency,
             base.incremental if self._incremental is None else self._incremental,

@@ -119,3 +119,14 @@ def test_the_changelog_dates_the_release() -> None:
     assert re.search(
         rf"^## \[{re.escape(priorityheader.__version__)}\] - \d{{4}}-\d\d-\d\d$", text, re.M
     )
+
+
+def test_every_changelog_release_is_dated_and_linked() -> None:
+    # Keep a Changelog: each released section carries its date and a link reference.
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = re.findall(r"^## \[([^\]]+)\](.*)$", text, re.M)
+    assert [name for name, _ in headings][:2] == ["Unreleased", priorityheader.__version__]
+    for name, rest in headings:
+        if name != "Unreleased":
+            assert re.fullmatch(r" - \d{4}-\d\d-\d\d", rest), name
+        assert re.search(rf"^\[{re.escape(name)}\]: https://github\.com/", text, re.M), name
