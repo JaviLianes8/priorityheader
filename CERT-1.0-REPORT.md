@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19)
+- [ ] Five QA lenses (item 19): round 3 finding a N2 fixed in db2f1e5
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -31,9 +31,9 @@ Progress:
 | 7 | Real ground truth | PASS: 30 fetched sources re-fetched and hash-checked on 2026-10-21; http-sf, hyperframe, aioquic run live |
 | 8 | Real e2e from the wheel | PASS: wheel in a fresh venv driven from an empty folder, CLI by subprocess, PyPI 0.2.0 upgraded in place |
 | 9 | Seeded fuzz, no crash, hang or blowup | PASS |
-| 10 | Supported Pythons | PASS: CPython 3.10.19, 3.11.5, 3.12.12, 3.13.2, 3.14.2, 3.14.2t; 3.8 and 3.9 refused by `requires-python` |
+| 10 | Supported Pythons | PASS: CPython 3.10.19, 3.11.5, 3.12.12, 3.13.2, 3.14.2, 3.14.2t at e4abedd; 3.10.19, 3.11.14, 3.12.12, 3.13.11, 3.14.2, 3.14.2t again at db2f1e5; 3.8 and 3.9 refused by `requires-python` |
 | 11 | README and `twine check` | PASS: `twine check --strict`, absolute links, badge |
-| 12 | Dated CHANGELOG section | PASS: 1.0.0, 2026-10-20 |
+| 12 | Dated CHANGELOG section | PASS: 1.0.0, 2026-10-21 |
 | 13 | pyproject 1.0.0, Production/Stable | PASS |
 | 14 | sdist and wheel contents | PASS |
 | 15 | Gates each exit 0 | PASS: see Gates |
@@ -237,6 +237,35 @@ three reference implementations present): `ruff format --check .`, `ruff check .
 `mypy --strict src`, `mypy --strict src tests` and `pytest` (490 passed, 2 opt-in e2e
 skipped) all exit 0.
 
+### Round 3 (on 33172b6)
+
+Lens a confirmed N1 fixed and reported one finding; it is fixed in db2f1e5 and not
+disputed. The lens c and lens e re-checks of this round left no verdict and run again on
+the fixed commit.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a N2 | `decode_h2_update` and `decode_h3_update` copied a frame with `bytes(frame)`, which runs a subclass's `__bytes__`: its exception escaped and a `__bytes__` returning other octets changed what was decoded, against the CHANGELOG line about hostile subclasses | one helper, `plain_octets`, copies the stored octets with the base type's own slice, so neither `__bytes__` nor a Python `__buffer__` (3.12 and later, which `memoryview` would call) runs; the frame decoders, the parsers, the Byte Sequence writer and the message quoting all use it; CHANGELOG line rewritten to name the decoders and `__buffer__` | `tests/test_plain_octets_contract.py`: decoders, parsers, builder and messages with `bytes` and `bytearray` subclasses whose `__bytes__` and `__buffer__` raise or return other octets |
+
+The new tests failed on 33172b6 (10 of 11). Each of the six call sites was then put back
+to its old conversion one at a time on the fixed code (`bytes(frame)` in the decoders,
+`bytes(value)` in the parser and the writer, `memoryview` in the helper and in both
+quoting branches), and each one makes the contract files fail.
+
+Gates at db2f1e5 on another machine (CPython 3.14.2, fresh clone, fetched sources, the
+three reference implementations, `PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_PYPI=1`):
+`ruff format --check .`, `ruff check .`, `mypy --strict src`, `mypy --strict src tests`
+and `pytest` (503 passed, no skips) all exit 0.
+
+Interpreters at db2f1e5, on another machine from a fresh clone: one build, `twine check
+--strict` passed for both files, the wheel and sdist listings unchanged apart from the new
+test file; the wheel installed in a fresh venv per interpreter and the sdist's suite run
+with `src` removed and the fetched sources present: CPython 3.11.14, 3.12.12, 3.13.11 and
+3.14.2 (481 passed), 3.10.19 and 3.14.2t (480 passed, aioquic 1.7.0 has no wheel there).
+The skips are the opt-in e2e tests and the two mypy tests (mypy is not installed in those
+venvs; it runs in the gates above). Doctests pass from each install. 3.9.25 refuses the
+wheel.
+
 ### Disputed findings
 
-None in round 1 or round 2.
+None in round 1, round 2 or round 3.
