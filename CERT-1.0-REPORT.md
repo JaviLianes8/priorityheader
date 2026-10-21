@@ -212,6 +212,31 @@ three reference implementations present): `ruff format --check .`, `ruff check .
 `mypy --strict src`, `mypy --strict src tests` and `pytest` (460 passed, 2 opt-in e2e
 skipped) all exit 0.
 
+### Round 2 (on b6e03d5)
+
+Lenses a, c and e confirmed every round 1 finding fixed and reported the findings below;
+every one is fixed in bddbe63, none is disputed.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a N1 | CHANGELOG said hostile `str`/`bytes` subclasses get the documented result, but `parse_priority` and `parse_params` let a subclass's `len` or slicing exception out (as 0.2.0 did) | the parsers read a plain copy (`str.__str__`, `bytes(memoryview(...))`) of each field line; CHANGELOG entry rewritten to state the parser change against 0.2.0 | `test_the_parsers_read_a_hostile_str_subclass_as_its_plain_text`, `test_the_parsers_read_a_hostile_bytes_subclass_as_its_plain_octets` |
+| c F5 | a `repr` returning a `str` subclass that misreports its length reached the message whole (1 MB) | `shown` cuts the `repr` text as a plain `str`; CHANGELOG entry added | `test_a_repr_that_lies_about_its_length_is_still_cut` (Priority, build_priority, encode_h2_update, over, decode_h2_update, decode_h3_update) |
+| e N27 | `+` after `@` in a Date survived the strict parser mutant | strict offsets and lenient drop for `@+5` in a member, an inner list and a parameter, `@x` and a bare `@` | `test_a_date_takes_no_plus_sign_and_needs_a_digit` |
+| e N10 | the 60-character quote limit was only bounded loosely | exact quoted text for a long str, bytes, list and dict | `test_a_message_quotes_at_most_sixty_characters` |
+| e N01 | bit-count wording tested at one size | 193, 201, 14,300, 20,001 and 50,001 bits through three entry points, and exact digits at 192 bits | `test_an_int_above_192_bits_is_described_by_its_bit_count`, `test_an_int_of_192_bits_is_quoted_by_its_digits` |
+| e N02 to N05, N11 | base-type routing in `shown` tested only by exception type | exact message for str, bytes and bytearray subclasses whose `len` raises a `BaseException` subclass, an int subclass whose `bit_length` raises, and a value whose `repr` raises | `test_a_hostile_str_or_bytes_subclass_is_quoted_as_its_plain_value`, `test_a_hostile_int_subclass_is_described_by_the_bit_count_of_its_plain_value`, `test_a_value_whose_repr_fails_is_named_by_its_type` |
+
+All of them live in `tests/test_quoting_contract.py`. The N1 and F5 tests failed on
+b6e03d5 before the fix. Each reviewer mutant was then applied to the fixed code one at a
+time, and each one makes that file fail: N27 (`"-+"` sign), N10 (`QUOTE_LIMIT + 10`), N01
+(threshold 100,000 bits), N02, N03 and N04 (no base copy), N05 (`value.bit_length()`), N11
+(fallback without the type name), plus reverting each fix (F5, N1 for str, N1 for bytes).
+
+Gates at bddbe63 on another machine (CPython 3.14.2, fresh clone, fetched sources and the
+three reference implementations present): `ruff format --check .`, `ruff check .`,
+`mypy --strict src`, `mypy --strict src tests` and `pytest` (490 passed, 2 opt-in e2e
+skipped) all exit 0.
+
 ### Disputed findings
 
-None in round 1.
+None in round 1 or round 2.
