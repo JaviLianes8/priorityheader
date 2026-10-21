@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 7 findings (lens e) fixed in 675fd49
+- [ ] Five QA lenses (item 19): round 8 finding (lens e) fixed in d37d715
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -403,6 +403,30 @@ fetched sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
 `mypy --strict src`, `mypy --strict src tests` and `pytest` (648 passed, the 632 of round
 6 and 16 new, no skips) all exit 0.
 
+### Round 8 (on 89648eb)
+
+Lens e re-checked G1 to G6 of round 7: all fixed, their repros give the original output
+and its seven earlier mutants are killed by `tests/test_cli_fold_runs.py` and
+`tests/test_cli_folds.py`. Its new sweep of `_unfold` and `_join` (10 probes, nine killed)
+found one gap. It is a missing contract, not a behaviour bug: the reviewer's repros give
+the right output on 89648eb, so the code is unchanged and so is the CHANGELOG. The finding
+is fixed in d37d715 and not disputed.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| e R5-P07 | nothing pinned a head with no start line whose first line is the `Priority` line (`_unfold` returning `unfolded[1:]` survived the full suite with the wheel e2e) | contract added | `test_a_head_without_a_start_line_keeps_a_priority_line_that_comes_first` (strict and lenient: `priority: u=1` then `server: x` with CRLF, `priority: u=1` with LF, and `Priority: u=5, i` give exit 0, no stderr, urgency 1 and `u=1`, or urgency 5, incremental and `u=5, i`) |
+
+The new contract passes on 89648eb, and all six of its cases fail with the mutant applied
+to `_cli.py`. On another machine (CPython 3.14.2, a clone of a bundle of d37d715,
+`PRIORITYHEADER_E2E=1`), the full suite with that mutant stops at
+`test_a_head_without_a_start_line_keeps_a_priority_line_that_comes_first[crlf-head-strict]`
+(strict exit 1, "expected ',' at offset 8").
+
+Gates at d37d715 on that machine (fetched sources, http-sf, hyperframe, aioquic,
+`PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`,
+`ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (654 passed,
+the 648 of round 7 and 6 new, no skips) all exit 0.
+
 ### Disputed findings
 
-None in round 1, round 2, round 3, round 4, round 5, round 6 or round 7.
+None in round 1, round 2, round 3, round 4, round 5, round 6, round 7 or round 8.
