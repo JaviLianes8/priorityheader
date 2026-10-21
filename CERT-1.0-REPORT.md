@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 6 findings (lenses a, c, e) fixed in 0d74275
+- [ ] Five QA lenses (item 19): round 7 findings (lens e) fixed in 675fd49
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -371,6 +371,38 @@ and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`, `ruff check .`,
 5 and 28 new, no skips) all exit 0. The timing contract then ran six more times there:
 six passes.
 
+### Round 7 (on 037639f)
+
+Lens e re-checked F1 to F5 of round 6: all fixed, and its seven earlier mutants are all
+killed by `tests/test_cli_folds.py`. Its new mutation round found six gaps, all in the
+standard input reader of `_cli.py`. Each is a missing contract, not a behaviour bug: the
+reviewer's repros give the right output on 037639f, so the code is unchanged and so is the
+CHANGELOG. The findings below are fixed in 675fd49, none is disputed.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| e G1-N09 | nothing pinned that the OWS at the end of a continuation line followed by another fold belongs to that next obs-fold (`lstrip` on the continuation survived) | contract added | `test_whitespace_at_the_end_of_a_middle_continuation_belongs_to_the_next_fold` (SP, HTAB and mixed: `x="a b c"`; before a bare third line, strict exit 1 at offset 8) |
+| e G2-N17 | nothing pinned the order of several `Priority` lines in a head (`reversed(unfolded)` survived) | contract added | `test_several_priority_lines_are_combined_in_order` (strict and lenient: `u=1` then `u=2` gives urgency 2 and `u=2`; a string spanning two `Priority` lines gives `x="a, b"`) |
+| e G3-N19 | nothing pinned that a continuation of SP or HTAB plus VT, FF or 0x85 is not blank (`filter(str.strip, ...)` survived) | contract added | `test_a_continuation_with_an_octet_besides_spaces_and_tabs_is_not_blank` (SP or HTAB plus VT, FF or 0x85, alone or before a further `, i` fold: strict exit 1 at offset 4) |
+| e G4-N20 | nothing pinned that an empty line ends a fold run (`line[:1] in " \t"` survived) | contract added | `test_a_line_that_is_no_field_line_ends_the_fold[empty]` (an empty line, then ` , i`, ` priority: u=2` or a tab-indented one: strict exit 0, urgency 1, `u=1`) |
+| e G5-N21 | nothing pinned that a non-field line clears the fold state of an earlier `Priority` line (`folding = folding or ...` survived) | contract added | the same test, both cases: after an empty line or the non-field line `garbage`, ` priority: u=2` is no `Priority` line |
+| e G6-N23-N24 | nothing pinned that a lone CR at a fold edge is kept (`rstrip(_OWS + "\r")` on the folded line and `strip(_OWS + "\r")` on the continuation survived) | CR added to the octets of the existing contract | `test_a_fold_trims_only_spaces_and_tabs` now also runs with CR at the end of the folded line, at the start of the continuation and at its end: strict exit 1 at offsets 3, 4 and 7 |
+
+The new contracts pass on 037639f. With each of the seven mutants applied to `_cli.py`
+one at a time, `tests/test_cli_fold_runs.py` with `tests/test_cli_folds.py` fails: N09,
+N17, N19, N20 and N21 in `test_cli_fold_runs.py`, N23 and N24 in
+`test_a_fold_trims_only_spaces_and_tabs` (the CR cases). The other mutants that lens e
+lists as surviving (N03, N04, N05, N30, N31, N33) change only OWS that the reader strips
+again further on, a blank piece the join drops anyway, or the `len(pieces) == 1` shortcut,
+so their output cannot differ
+and lens e did not report them.
+
+Gates at 675fd49 on another machine (CPython 3.14.2, clone of a bundle of the commit,
+fetched sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
+`PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`, `ruff check .`,
+`mypy --strict src`, `mypy --strict src tests` and `pytest` (648 passed, the 632 of round
+6 and 16 new, no skips) all exit 0.
+
 ### Disputed findings
 
-None in round 1, round 2, round 3, round 4, round 5 or round 6.
+None in round 1, round 2, round 3, round 4, round 5, round 6 or round 7.
