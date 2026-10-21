@@ -82,3 +82,26 @@ def test_a_line_that_is_no_field_line_ends_the_fold(
             False,
             "u=1",
         ), body
+
+
+@pytest.mark.parametrize("args", [["--strict"], []], ids=["strict", "lenient"])
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (b"priority: u=1\r\nserver: x\r\n\r\n", (1, False, "u=1")),
+        (b"priority: u=1\n", (1, False, "u=1")),
+        (b"Priority: u=5, i\r\n", (5, True, "u=5, i")),
+    ],
+    ids=["crlf-head", "lf-line", "capitalised"],
+)
+def test_a_head_without_a_start_line_keeps_a_priority_line_that_comes_first(
+    args: list[str],
+    body: bytes,
+    expected: tuple[int, bool, str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # A head may start right at its Priority line; that first line still counts.
+    code, out, err = _run(args, capsys, body)
+    assert (code, err) == (0, ""), (body, err)
+    report = json.loads(out)
+    assert (report["urgency"], report["incremental"], report["canonical"]) == expected, body
