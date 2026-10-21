@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 3 finding a N2 fixed in db2f1e5
+- [ ] Five QA lenses (item 19): round 4 findings (lenses a, c, d, e) fixed in 509798a
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -67,9 +67,12 @@ Kept: all 25 public names of 0.2.0, their parameter names (`header`, `request`,
 `response`, `urgency`, `incremental`, `extensions`, `params`, `stream_id`, `element_id`,
 `field_value`, `frame`, `max_frame_size`, `target`, `strict`) and defaults. Changed (all in
 the CHANGELOG): `Priority` checks its fields, including through `_replace` and `_make`;
-`FrameError` for an unknown `target`; bounded messages; type-showing reprs; public classes
-report `priorityheader` as their module. Added: pickling and copying of `PriorityParams`,
-an `offset` on `FrameError`. Internal: the frame module split into `_frames`, `_h2` and
+`FrameError` for an unknown `target` name and `TypeError` for a `target` that is not a
+`str`; `strict` takes only a `bool`; fake bools refused; `build_params` rechecks a
+subclass; LF-only standard input lines in the command line; bounded messages;
+type-showing reprs. Public classes keep their defining module, as in 0.2.0 (round 4 undid
+a rewrite to `priorityheader` that broke `typing.get_type_hints` and `inspect.getsource`).
+Added: pickling and copying of `PriorityParams`, an `offset` on `FrameError`. Internal: the frame module split into `_frames`, `_h2` and
 `_h3` to keep every file under 200 lines with the examples.
 
 ## Ground truth (item 7)
@@ -266,6 +269,44 @@ The skips are the opt-in e2e tests and the two mypy tests (mypy is not installed
 venvs; it runs in the gates above). Doctests pass from each install. 3.9.25 refuses the
 wheel.
 
+### Round 4 (on 56cf946)
+
+Lenses a, c, d and e reported the findings below; every one is fixed in 509798a, none is
+disputed. Lens d passed everything else; its one finding was the timing test.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a F1 | `typing.get_type_hints(PriorityUpdate)` raised `NameError` (`Target`), so a pydantic model with a `PriorityUpdate` field could not be built; 0.2.0 resolved it | the `__module__` rewrite to `priorityheader` is gone from all eight public classes, so string annotations resolve in their defining module again; CHANGELOG line about it removed | `tests/test_contract_introspection.py`: `get_type_hints` on every public class, function and method, and the exact `PriorityUpdate` field types |
+| a F2 | `inspect.getsource` was wrong or raised for 7 of the 8 public classes | same fix | `test_the_source_of_every_public_class_is_its_own_definition`, `test_every_public_class_is_reached_from_the_package` (replaces the old `__module__` test) |
+| a F3 | CHANGELOG claimed 0.2.0 could not unpickle a `FrameError` with a code; it could | entry removed; only the new `offset` is claimed | none (docs) |
+| a F4 | GUIDE and `encode_h3_update` promised `TypeError` for wrong types, but a non-str `target` raised `FrameError` and `strict` took any object by truthiness | `TypeError` for a `target` that is not a `str` (a `str` subclass is compared by its text) and for a `strict` that is not `True` or `False`, in `parse_priority`, `parse_params` and `PriorityUpdate.priority`; GUIDE, docstrings and CHANGELOG say so | `tests/test_contract_arguments.py`: `test_a_target_that_is_not_a_str_is_a_type_error`, `test_a_target_is_compared_by_its_plain_text`, `test_strict_must_be_a_bool`, `test_strict_takes_both_bools` |
+| a F5 | README said the raw octets of a frame are read | "or a field value as bytes" | none (docs) |
+| a F6 | README wrote `parse_priority(value, strict=True)` | `parse_priority(header, strict=True)` | none (docs) |
+| a F7 | the encoders' "value does not parse" error (code None, offset set) was missing from the `FrameError` docstring and the GUIDE table | docstring, table row and the GUIDE errors paragraph updated | none (docs) |
+| c F1 | the command line split standard input with `str.splitlines()`, so 0x0B, 0x0C, 0x1C to 0x1E, 0x85 and a lone CR ended a line: `--strict` passed such a value and a head's `Priority` line was cut short | only LF ends a line, one CR before it is dropped; every other octet reaches the parser and fails with its offset; CHANGELOG entry | `test_only_a_line_feed_ends_a_standard_input_line` (each octet, bare value and message head, strict exit 1 at offset 3, lenient fallback) |
+| c F2 | `Mock(spec=bool)` was stored as an incremental flag or extension value, then `==` and `hash` raised `RuntimeError` | flags are checked by identity with `True` and `False` (one helper, also used for `strict`); the writer refuses an object that only claims `bool`; the equality tag falls back to the type of the value instead of raising | `test_a_fake_bool_is_refused_as_the_incremental_flag`, `test_a_fake_bool_is_refused_as_an_extension_value`, `test_stored_flags_are_the_bool_singletons` |
+| c F3 | `build_params` rendered a subclass's overridden `urgency`, `incremental` and `extensions` unchecked (`u=99, i="yes", u=5, i=1.235`) | it reads the base class slots and builds a fresh `PriorityParams` from them, which runs every check again; an uninitialised subclass raises `TypeError` | `test_build_params_writes_what_the_base_instance_holds`, `test_build_params_rechecks_a_subclass_that_corrupts_its_members` |
+| d D1 | `test_parsing_time_grows_linearly` compared wall-clock times and failed about 1 run in 30 under load | it measures CPU time per call (`time.process_time`), repeats each sample for at least 0.2 s because that clock ticks every 15.6 ms on Windows, pauses the collector, measures both sizes in turn and keeps the best of three; the bound is 10x (linear is about 4x, quadratic 16x) | the test itself; run alone the ratios are 3.5 to 4.6 |
+| e F1-E15 | the writer's Date range was not pinned | Date at plus and minus 999,999,999,999,999 written; plus and minus 10^15 and 10^16 refused by `build_priority` and `PriorityParams` | `test_the_writer_takes_the_whole_date_range_and_nothing_more` |
+| e F2-J07 | the OWS strip of standard input lines was not pinned | tab and space around bare values, CRLF line ends | `test_optional_whitespace_around_a_standard_input_line_is_dropped` |
+| e F3-F05 | long bytes values could be quoted from their own `repr` | exact message for a 100-byte `bytes` and `bytearray` subclass whose `repr` is forged | `test_a_long_bytes_value_is_quoted_from_its_octets_never_its_repr` |
+| e F4-C06 | HTAB inside an inner list was pinned only by the optional http-sf oracle | strict offsets and lenient drop for a tab after `(`, between items and before `)` | `test_strict_parse_refuses_grammar_breaks_at_their_offset` |
+| e F5 | C02, D12, D13 and T03 were pinned only by the fetched corpus | a repeated key keeps its first place and its last value; invalid UTF-8 in a Display String, a Date with a fraction and an upper-case key letter fail at their offsets | `test_a_repeated_key_keeps_its_first_place_and_its_last_value`, `test_strict_parse_refuses_grammar_breaks_at_their_offset` |
+
+The behaviour tests (a F1, a F2, a F4, c F1, c F2, c F3) failed on 56cf946 before the fix.
+On 509798a, on another machine from a bundle of the commit with the fetched sources, each
+of the eight reviewer mutants (E15, J07, F05, C06, C02, D12, D13, T03) and each fix put
+back on its own (the `__module__` rewrite on `PriorityUpdate` and on `Token`, the `target`
+type check, the `strict` check, `splitlines`, `isinstance` for flags, `isinstance` in the
+writer, rendering the subclass's own properties) makes its contract file fail. The
+corpus-free cases were written by hand from the RFC 9651 grammar.
+
+Gates at 509798a on another machine (CPython 3.14.2, fresh clone of the commit, fetched
+sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
+`PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`, `ruff check .`, `mypy --strict src`,
+`mypy --strict src tests` and `pytest` (586 passed, no skips) all exit 0. The timing test
+then ran in three processes at once pinned to two cores, six rounds: 18 runs, no failure.
+
 ### Disputed findings
 
-None in round 1, round 2 or round 3.
+None in round 1, round 2, round 3 or round 4.
