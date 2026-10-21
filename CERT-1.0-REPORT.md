@@ -180,3 +180,38 @@ At e4abedd on another machine from a fresh clone, CPython 3.14, each command on 
 with the fetched sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
 `PRIORITYHEADER_E2E_PYPI=1`: `ruff format --check .`, `ruff check .`, `mypy --strict src`,
 `mypy --strict src tests` and `pytest` (400 passed, no skips) all exit 0.
+
+## QA lenses (item 19)
+
+### Round 1 (on 5f8b037)
+
+Lenses a, c and e reported findings; every one is fixed in c94810e, none is disputed.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a F1 | `PriorityUpdate.priority` example never ran: classes re-homed to `priorityheader` hide their methods from the doctest collector | the suite walks `__all__` and every method docstring itself and pins the example count per object (60 examples) | `tests/test_docstrings.py`; fails when that example's expected output is broken |
+| a F2 | `Priority._field_defaults` was `{}` (0.2.0: both defaults) | defaults declared on the named tuple fields | `test_priority_keeps_the_named_tuple_field_defaults` |
+| a F3 | `PriorityParams.over` raised `AttributeError` for a non-Priority | `TypeError` naming the value | `test_over_takes_only_a_priority` |
+| a F4 | CHANGELOG missed the error pickling fix; 0.2.0 and 0.1.0 undated; no link references | entries added, 0.2.0 dated from PyPI (2026-10-20), 0.1.0 from its commit 1574a93 (2026-10-12, never on PyPI), link references for every section | `test_every_changelog_release_is_dated_and_linked` |
+| c F1 | caller's `decimal` context leaked `InvalidOperation`, `Rounded`, `Inexact` out of parse and build | the parser builds a Decimal from its text; the writer rounds in a private context and compares without context arithmetic | `test_the_caller_decimal_context_changes_nothing`, `test_too_many_decimal_places_stay_a_priority_error_in_any_context` (prec 6, Rounded and Inexact trapped) |
+| c F2 | deep or self-referencing lists raised `RecursionError` | a list inside an inner list is refused with `TypeError` without recursing | `test_nesting_beyond_an_inner_list_is_a_type_error_at_any_depth` |
+| c F3 | falsy non-mappings (`0`, `""`, `[]`...) accepted as `extensions` | only None means no extensions | `test_extensions_that_are_not_a_mapping_are_refused_even_when_empty` |
+| c F4 | `shown` called a subclass's `len` and slicing | length and cut go through the base type, the whole quote is guarded | `test_a_subclass_that_breaks_len_still_gets_the_documented_type_error` |
+| e F1 | M51, M56, M61, M62, M74, M94, M97, M116 only died with the fetched corpus | hand-written grammar cases that need no fetched file | `tests/test_contract_corpus_free.py` |
+| e F2 | M101, M102: decoders could lose non-ASCII payload octets | exact `field_value` and strict offset for a 0xFF octet, both protocols | `test_h2_decode_keeps_every_payload_octet_as_sent`, `test_h3_decode_keeps_every_payload_octet_as_sent` |
+| e F3 | M77: HTTP/3 decoder accepting type 0x10 survived | ten other frame types refused | `test_h3_decode_takes_only_the_two_priority_update_types` |
+| e F4 | M83: huge-int guard in `shown` untested | the "an int of N bits" wording, with and without the int string limit | `test_a_huge_int_is_described_by_its_bit_count_in_every_message` |
+
+Every new test failed on 5f8b037 where it pins a behaviour change (a F2, a F3, a F4, c F1
+to c F4) or was run against its mutant: the twelve mutants above (M51, M56, M61, M62, M74,
+M94, M97, M116, M101, M102, M77, M83) and the broken `PriorityUpdate.priority` example
+each make the new tests fail. Behaviour changes are in the CHANGELOG under 1.0.0.
+
+Gates at c94810e on another machine (CPython 3.14.2, fresh clone, fetched sources and the
+three reference implementations present): `ruff format --check .`, `ruff check .`,
+`mypy --strict src`, `mypy --strict src tests` and `pytest` (460 passed, 2 opt-in e2e
+skipped) all exit 0.
+
+### Disputed findings
+
+None in round 1.
