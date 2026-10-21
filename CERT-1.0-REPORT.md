@@ -15,7 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 4 findings (lenses a, c, d, e) fixed in 509798a
+- [ ] Five QA lenses (item 19): round 5 findings (lenses a, c, e) fixed in 150bbe0
 - [ ] Independent reviewer (item 16)
 
 ## Scorecard (author)
@@ -307,6 +307,35 @@ sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
 `mypy --strict src tests` and `pytest` (586 passed, no skips) all exit 0. The timing test
 then ran in three processes at once pinned to two cores, six rounds: 18 runs, no failure.
 
+### Round 5 (on f96684a)
+
+Lens a re-checked its seven round 4 findings and lens c its three: all fixed. Lens e
+re-ran its mutation round. The new findings below are fixed in 150bbe0, none is disputed.
+
+| Lens | Finding | Fix | Contract |
+| --- | --- | --- | --- |
+| a N1 | CHANGELOG said a `PriorityParams` holding a `Mock(spec=bool)` raised `RuntimeError` on `==` and `hash` in 0.2.0; that was true only for an extension value (as the incremental flag it hashed and compared, and `build_priority` wrote it as `i`) | entry limited to extension values; checked again on the 0.2.0 wheel | none (docs) |
+| c F4 | in a message head on standard input an obs-fold of the `Priority` line was read as a separate line and dropped, so `priority: u=1` folded onto ` i` passed `--strict` with urgency 1 | in a head, a line starting with SP or HTAB is joined to the field line before it with one SP (RFC 9112 section 5.2); after anything else it is dropped (section 2.2), and an indented `priority:` line no longer marks a head; GUIDE and CHANGELOG say so | `tests/test_cli_lines.py`: `test_a_folded_priority_line_is_one_value` (SP, HTAB and mixed folds: strict exit 1 at offset 4, lenient defaults), `test_a_fold_keeps_a_valid_value_valid`, `test_a_fold_belongs_to_the_field_before_it`, `test_an_indented_line_that_continues_no_field_is_no_priority_line`, `test_bare_values_are_not_folded` |
+| e N1-S11 | dropping every CR before LF instead of one survived the suite | contract added | `test_only_one_carriage_return_before_a_line_feed_is_dropped` (bare and head, strict exit 1 at offset 3, lenient defaults) |
+| e N2-S13-S14 | dropping only the leading OWS of a start line, or stripping before dropping the CR, survived the suite | contract added | `test_a_request_line_with_trailing_whitespace_starts_a_head` (SP, HTAB and both, CRLF and LF: strict exit 0 with the defaults) |
+
+The c F4 contracts failed on f96684a before the fix (nine failures; the CR and start
+line contracts pass there, as lens e expected). On the fixed code each
+of these mutants of `_cli.py` makes `tests/test_cli_lines.py` fail: S11
+(`rstrip("\r")`), S13 (`lstrip` on the stripped lines), no folding at all, folding only on
+SP, joining without the SP, a fold after any line, appending a fold as its own line, and
+detecting the head from the unfolded lines.
+Each mutant ran against `tests/test_cli.py`, `tests/test_cli_lines.py`,
+`tests/test_fuzz.py` and `tests/test_review_fixes.py`. The CHANGELOG entries were checked
+against the 0.2.0 wheel: a folded `Priority` line, an indented `priority:` line after the
+status line and a fold after another field all gave exit 0 with the unfolded urgency there.
+
+Gates at 150bbe0 on another checkout (CPython 3.13.2, clone of a bundle of the commit,
+fetched sources, http-sf, hyperframe, aioquic, `PRIORITYHEADER_E2E=1` and
+`PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`, `ruff check .`, `mypy --strict src`,
+`mypy --strict src tests` and `pytest` (604 tests, the 586 of round 4 and 18 new) all
+exit 0.
+
 ### Disputed findings
 
-None in round 1, round 2, round 3 or round 4.
+None in round 1, round 2, round 3, round 4 or round 5.
