@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -38,9 +39,13 @@ def mypy_output(tmp_path_factory: pytest.TempPathFactory) -> str:
     target = folder / "snippet.py"
     target.write_text(SNIPPET, encoding="utf-8")
     config = folder / "mypy.ini"
-    config.write_text(f"[mypy]\nmypy_path = {SRC.as_posix()}\n", encoding="utf-8")
+    paths = f"mypy_path = {SRC.as_posix()}\n" if SRC.is_dir() else ""
+    config.write_text(f"[mypy]\n{paths}", encoding="utf-8")
     cache = str(folder / "cache")
-    args = ["--strict", "--config-file", str(config), "--cache-dir", cache, str(target)]
+    # The interpreter running the tests decides where the package is found: the source
+    # tree when it exists, otherwise the installed wheel (as in the sdist's own suite).
+    args = ["--strict", "--config-file", str(config), "--cache-dir", cache]
+    args += ["--python-executable", sys.executable, str(target)]
     try:
         from mypy import api
     except ImportError:
