@@ -25,7 +25,8 @@ from priorityheader import (
     merge_priority,
     parse_priority,
 )
-from priorityheader._frames import H2_DEFAULT_MAX_FRAME_SIZE, decode_varint, encode_varint
+from priorityheader._h2 import H2_DEFAULT_MAX_FRAME_SIZE
+from priorityheader._h3 import decode_varint, encode_varint
 
 
 def _section(text: str, start: str, end: str) -> str:

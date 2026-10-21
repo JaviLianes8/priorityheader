@@ -1,4 +1,4 @@
-"""The README examples run and print what their comments say; docs and versions agree."""
+"""The README and GUIDE examples run and print what their comments say; docs agree."""
 
 from __future__ import annotations
 
@@ -8,14 +8,17 @@ import itertools
 import re
 from pathlib import Path
 
+import pytest
+
 import priorityheader
 
 ROOT = Path(__file__).resolve().parents[1]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+GUIDE = (ROOT / "GUIDE.md").read_text(encoding="utf-8")
 
 
-def _python_blocks() -> list[str]:
-    return re.findall(r"```python\n(.*?)```", README, flags=re.DOTALL)
+def _python_blocks(text: str = README) -> list[str]:
+    return re.findall(r"```python\n(.*?)```", text, flags=re.DOTALL)
 
 
 def _expected_output(block: str) -> list[str]:
@@ -32,22 +35,28 @@ def _expected_output(block: str) -> list[str]:
     return expected
 
 
-def test_every_readme_example_runs_and_prints_its_comment() -> None:
+@pytest.mark.parametrize(
+    "name,text,blocks,outputs", [("README", README, 4, 16), ("GUIDE", GUIDE, 5, 13)]
+)
+def test_every_example_runs_and_prints_its_comment(
+    name: str, text: str, blocks: int, outputs: int
+) -> None:
     checked = 0
-    for block in _python_blocks():
+    for block in _python_blocks(text):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            exec(compile(block, "README.md", "exec"), {"__name__": "readme"})
+            exec(compile(block, f"{name}.md", "exec"), {"__name__": "example"})
         expected = _expected_output(block)
         assert expected, block
         assert out.getvalue().splitlines() == expected
         checked += len(expected)
-    assert len(_python_blocks()) == 4
-    assert checked == 16
+    assert len(_python_blocks(text)) == blocks
+    assert checked == outputs
 
 
-def test_every_print_in_the_readme_shows_its_output() -> None:
-    for block in _python_blocks():
+@pytest.mark.parametrize("text", [README, GUIDE], ids=["README", "GUIDE"])
+def test_every_print_shows_its_output(text: str) -> None:
+    for block in _python_blocks(text):
         lines = block.splitlines()
         for index, line in enumerate(lines):
             if line.strip().startswith("print("):
@@ -90,3 +99,21 @@ def test_no_em_dash_anywhere_in_the_tree() -> None:
 def test_source_files_stay_under_two_hundred_lines() -> None:
     for path in [*ROOT.joinpath("src").rglob("*.py"), *ROOT.joinpath("tests").rglob("*.py")]:
         assert len(path.read_text(encoding="utf-8").splitlines()) <= 200, path
+
+
+def test_links_in_the_readme_are_absolute() -> None:
+    # PyPI renders the README away from the repository, so a relative link breaks there.
+    for target in re.findall(r"\]\(([^)]+)\)", README):
+        assert target.startswith("https://"), target
+
+
+def test_the_readme_points_at_the_guide_and_the_changelog() -> None:
+    base = "https://github.com/JaviLianes8/priorityheader/blob/main/"
+    assert base + "GUIDE.md" in README and base + "CHANGELOG.md" in README
+
+
+def test_the_changelog_dates_the_release() -> None:
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert re.search(
+        rf"^## \[{re.escape(priorityheader.__version__)}\] - \d{{4}}-\d\d-\d\d$", text, re.M
+    )

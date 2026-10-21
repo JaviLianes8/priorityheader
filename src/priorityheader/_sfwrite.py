@@ -6,7 +6,7 @@ import base64
 from collections.abc import Mapping, Sequence
 from decimal import ROUND_HALF_EVEN, Decimal
 
-from ._errors import PriorityError
+from ._errors import PriorityError, shown
 from ._sftypes import ALPHA, KEY_CHARS, LCALPHA, TOKEN_CHARS, BareItem, Date, DisplayString, Token
 
 INTEGER_LIMIT = 999_999_999_999_999
@@ -16,12 +16,12 @@ _DECIMAL_LIMIT = 999_999_999_999
 def serialize_key(key: object) -> str:
     """Return ``key`` when it is a valid Dictionary or Parameter key."""
     if not isinstance(key, str):
-        raise TypeError(f"a key is a str, got {key!r}")
+        raise TypeError(f"a key is a str, got {shown(key)}")
     key = str.__str__(key)
     if not key or (key[0] not in LCALPHA and key[0] != "*"):
-        raise PriorityError(f"{key!r} is not a structured field key")
+        raise PriorityError(f"{shown(key)} is not a structured field key")
     if any(char not in KEY_CHARS for char in key):
-        raise PriorityError(f"{key!r} is not a structured field key")
+        raise PriorityError(f"{shown(key)} is not a structured field key")
     return key
 
 
@@ -34,16 +34,16 @@ def is_token(value: str) -> bool:
 
 def _integer(value: int) -> str:
     if not -INTEGER_LIMIT <= value <= INTEGER_LIMIT:
-        raise PriorityError(f"{value} is outside the Integer range")
+        raise PriorityError(f"{shown(value)} is outside the Integer range")
     return str(value)
 
 
 def _decimal(value: Decimal) -> str:
     if not value.is_finite() or value.adjusted() >= 12:
-        raise PriorityError(f"{value} is not a Decimal of at most 12 integer digits")
+        raise PriorityError(f"{shown(value)} is not a Decimal of at most 12 integer digits")
     rounded = value.quantize(Decimal("0.001"), rounding=ROUND_HALF_EVEN)
     if abs(rounded) > _DECIMAL_LIMIT + Decimal("0.999"):
-        raise PriorityError(f"{value} has more than 12 integer digits")
+        raise PriorityError(f"{shown(value)} has more than 12 integer digits")
     text = f"{rounded:f}".rstrip("0")
     text = text + "0" if text.endswith(".") else text
     return "0.0" if text in ("-0.0", "0.0") else text
@@ -51,7 +51,7 @@ def _decimal(value: Decimal) -> str:
 
 def _string(value: str) -> str:
     if any(not " " <= char <= "~" for char in value):
-        raise PriorityError(f"{value!r} holds characters a String cannot carry")
+        raise PriorityError(f"{shown(value)} holds characters a String cannot carry")
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
@@ -109,7 +109,7 @@ def serialize_bare_item(value: object) -> str:
         return _decimal(value)
     if isinstance(value, Token):
         if not is_token(value):
-            raise PriorityError(f"{str(value)!r} is not a Token")
+            raise PriorityError(f"{shown(str(value))} is not a Token")
         return str(value)
     if isinstance(value, DisplayString):
         return _display(value)

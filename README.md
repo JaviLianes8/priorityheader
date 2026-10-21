@@ -1,7 +1,12 @@
 # priorityheader
 
+[![Lianes8 Certified](https://lianes8studio.com/certified/lianes8-certified-badge.svg)](https://lianes8studio.com/certified)
+
 Parse, merge and build the HTTP `Priority` field and PRIORITY_UPDATE frames (RFC 9218),
-zero dependencies and typed.
+zero dependencies and typed. The [GUIDE](https://github.com/JaviLianes8/priorityheader/blob/main/GUIDE.md)
+describes every public name in detail, and the
+[CHANGELOG](https://github.com/JaviLianes8/priorityheader/blob/main/CHANGELOG.md) what
+changed in each release.
 
 ## Install
 
@@ -78,7 +83,7 @@ print(build_params(PriorityParams(urgency=3, incremental=False)))
 Both builders check every key and value, so the result always parses back to what was
 given: an urgency outside 0..7 or an extension that cannot be written raises
 `PriorityError`, and a wrong type raises `TypeError`. A carriage return or line feed can
-never reach the output.
+never reach the output. `Priority` checks its fields the same way.
 
 ## PRIORITY_UPDATE frames
 
@@ -129,17 +134,19 @@ with 2.
 
 | Name | What it does |
 | --- | --- |
-| `parse_priority(value, *, strict=False)` | Resolved `Priority` of a request or frame field |
-| `parse_params(value, *, strict=False)` | Members present in a field, `None` when absent |
+| `parse_priority(header, *, strict=False)` | Resolved `Priority` of a request or frame field |
+| `parse_params(header, *, strict=False)` | Members present in a field, `None` when absent |
 | `merge_priority(request, response)` | Response members over the request (section 8) |
 | `build_priority(urgency=3, incremental=False, *, extensions=None)` | Request form, defaults left out |
 | `build_params(params)` | Exactly the members of a `PriorityParams` |
-| `encode_h2_update`, `decode_h2_update` | HTTP/2 PRIORITY_UPDATE frame (type 0x10) |
-| `encode_h3_update`, `decode_h3_update` | HTTP/3 PRIORITY_UPDATE frames (0xF0700, 0xF0701) |
-| `Priority` | Named tuple of `urgency` and `incremental` |
+| `encode_h2_update(stream_id, field_value, *, max_frame_size=16384)` | HTTP/2 PRIORITY_UPDATE frame (type 0x10) |
+| `decode_h2_update(frame, *, max_frame_size=16384)` | One HTTP/2 frame into a `PriorityUpdate` |
+| `encode_h3_update(element_id, field_value, *, target="stream")` | HTTP/3 PRIORITY_UPDATE frame (0xF0700, 0xF0701) |
+| `decode_h3_update(frame)` | One HTTP/3 frame into a `PriorityUpdate` |
+| `Priority` | Checked named tuple of `urgency` and `incremental` |
 | `PriorityParams` | Immutable members of a field, with `over()` and `resolve()` |
 | `PriorityUpdate` | Decoded frame: `element_id`, `field_value`, `target`, `protocol`, `priority()` |
-| `PriorityError` | A `ValueError` with the `offset` of a strict parse failure |
+| `PriorityError` | A `ValueError`, with the `offset` of a strict parse failure |
 | `FrameError` | A `PriorityError` with the RFC error `code` |
 | `Token`, `Date`, `DisplayString` | Structured field types for extension values |
 | `ExtensionValue`, `FieldInput` | Type aliases for extension values and field input |
@@ -156,21 +163,28 @@ field that fails to parse must be dropped as a whole, unknown or out of range me
 ignored, an absent member means the default in a request but "no change" in a response,
 and a response that wants the default urgency has to say `u=3` out loud.
 
-The structured field machinery usually lives inside large servers and HTTP stacks. This
-library is the focused piece: a parser checked against the shared structured field test
-corpus, a builder that refuses anything it cannot write back, the section 8 merge, and the
-frame codecs, using only the standard library.
+In Python the pieces exist apart. http-sf and http_sfv parse and write any structured
+field, but leave the Priority rules (defaults, ignored members, the section 8 merge) to
+you; both also accept a 16 digit Integer with a leading zero, which RFC 9651 says to
+refuse, and http-sf refuses a Byte Sequence without padding, which RFC 9651 says
+parsers should read. hyperframe 6.1.0 has no PRIORITY_UPDATE frame type and the
+HTTP/3 frame types of aioquic 1.7.0 do not include it either. This library is the
+focused piece: a parser that passes the httpwg structured field test corpus and is
+compared live with http-sf, a builder that refuses anything it cannot write back, the
+section 8 merge, and the frame codecs checked against hyperframe and aioquic, using only
+the standard library.
 
 ## Development
 
 `python scripts/fetch_upstream.py` downloads the RFCs, the IANA registry and the
 structured field test corpus the tests compare against; they are not part of the
-repository and their tests skip until fetched. `scripts/check.ps1` runs format, lint,
-types and tests.
+repository and their tests skip until fetched. The comparisons with other
+implementations run when `http-sf`, `hyperframe` and `aioquic` are installed, and skip
+otherwise. `scripts/check.ps1` runs format, lint, types and tests.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/JaviLianes8/priorityheader/blob/main/LICENSE).
 
 ## Links
 

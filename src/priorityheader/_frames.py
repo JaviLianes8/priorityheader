@@ -1,10 +1,10 @@
-"""PRIORITY_UPDATE frames for HTTP/2 (RFC 9218 section 7.1) and HTTP/3 (section 7.2)."""
+"""What HTTP/2 and HTTP/3 PRIORITY_UPDATE frames share (RFC 9218 section 7)."""
 
 from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
-from ._errors import FrameError, PriorityError
+from ._errors import FrameError, PriorityError, shown
 from ._model import Priority
 from ._parse import parse_priority
 from ._sfdict import parse_dictionary
@@ -12,11 +12,6 @@ from ._sfdict import parse_dictionary
 H2_FRAME_TYPE = 0x10
 H3_REQUEST_FRAME_TYPE = 0xF0700
 H3_PUSH_FRAME_TYPE = 0xF0701
-#: RFC 9113 section 6.5.2: the initial SETTINGS_MAX_FRAME_SIZE.
-H2_DEFAULT_MAX_FRAME_SIZE = 16384
-_H2_MAX_FRAME_SIZE = (1 << 24) - 1
-_STREAM_MASK = (1 << 31) - 1
-VARINT_MAX = (1 << 62) - 1
 
 Target = Literal["stream", "push"]
 Protocol = Literal["h2", "h3"]
@@ -27,7 +22,15 @@ class PriorityUpdate(NamedTuple):
 
     ``element_id`` is the prioritized stream ID, or the push ID when ``target`` is
     ``"push"`` (HTTP/3 type 0xF0701). ``field_value`` is the Priority Field Value as sent,
-    and ``protocol`` is ``"h2"`` or ``"h3"``.
+    and ``protocol`` is ``"h2"`` or ``"h3"``. It is a plain record: the decoders fill it,
+    and building one by hand checks nothing.
+
+    >>> from priorityheader import decode_h3_update, encode_h3_update
+    >>> update = decode_h3_update(encode_h3_update(8, "u=2, i"))
+    >>> update
+    PriorityUpdate(element_id=8, field_value='u=2, i', target='stream', protocol='h3')
+    >>> update.priority()
+    Priority(urgency=2, incremental=True)
     """
 
     element_id: int
@@ -41,136 +44,52 @@ class PriorityUpdate(NamedTuple):
         With ``strict`` a value that fails to parse raises FrameError with the code RFC 9218
         section 7 allows a receiver to close the connection with: PROTOCOL_ERROR for HTTP/2,
         H3_GENERAL_PROTOCOL_ERROR for HTTP/3. ``offset`` says where the value broke.
+
+        >>> from priorityheader import FrameError, PriorityUpdate
+        >>> PriorityUpdate(1, "u=1, i=?2").priority()
+        Priority(urgency=3, incremental=False)
+        >>> try:
+        ...     PriorityUpdate(1, "u=1, i=?2").priority(strict=True)
+        ... except FrameError as error:
+        ...     print(error.code, error.offset)
+        PROTOCOL_ERROR 8
         """
         try:
             return parse_priority(self.field_value, strict=strict)
         except PriorityError as error:
             code = "PROTOCOL_ERROR" if self.protocol == "h2" else "H3_GENERAL_PROTOCOL_ERROR"
-            failure = FrameError(f"the Priority Field Value does not parse: {error}", code)
-            failure.offset = error.offset
-            raise failure from None
+            message = f"the Priority Field Value does not parse: {error}"
+            raise FrameError(message, code, error.offset) from None
 
 
-def _value_octets(field_value: str) -> bytes:
+PriorityUpdate.__module__ = "priorityheader"
+
+
+def value_octets(field_value: object) -> bytes:
+    """Return the octets of a Priority Field Value that parses, for a frame payload."""
     if not isinstance(field_value, str):
-        raise TypeError(f"field_value must be a str, got {field_value!r}")
+        raise TypeError(f"field_value must be a str, got {shown(field_value)}")
+    text = str.__str__(field_value)
     try:
-        parse_dictionary(field_value)
+        parse_dictionary(text)
     except PriorityError as error:
-        raise FrameError(f"the Priority Field Value does not parse: {error}") from None
-    return field_value.encode("ascii")
+        message = f"the Priority Field Value does not parse: {error}"
+        raise FrameError(message, None, error.offset) from None
+    return text.encode("ascii")
 
 
-def _octets(frame: object) -> bytes:
+def octets(frame: object) -> bytes:
+    """Return a copy of the frame bytes, refusing anything that is not bytes-like."""
     if not isinstance(frame, (bytes, bytearray, memoryview)):
-        raise TypeError(f"a frame is bytes, got {frame!r}")
+        raise TypeError(f"a frame is bytes, got {shown(frame)}")
     return bytes(frame)
 
 
-def _check_id(value: object, low: int, high: int, what: str) -> int:
+def check_id(value: object, low: int, high: int, what: str) -> int:
+    """Return ``value`` as a plain int when it is an int in ``low..high``."""
     if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{what} must be an int, got {value!r}")
-    if not low <= value <= high:
-        raise FrameError(f"{what} {value} is outside {low}..{high}")
-    return value
-
-
-def encode_h2_update(
-    stream_id: int, field_value: str, *, max_frame_size: int = H2_DEFAULT_MAX_FRAME_SIZE
-) -> bytes:
-    """Encode an HTTP/2 PRIORITY_UPDATE frame, header included, for stream ``stream_id``."""
-    _check_id(stream_id, 1, _STREAM_MASK, "stream_id")
-    payload = stream_id.to_bytes(4, "big") + _value_octets(field_value)
-    limit = _check_id(
-        max_frame_size, H2_DEFAULT_MAX_FRAME_SIZE, _H2_MAX_FRAME_SIZE, "max_frame_size"
-    )
-    if len(payload) > limit:
-        raise FrameError(f"a {len(payload)} byte payload exceeds the {limit} byte frame size")
-    # Flags 0 and the frame's own Stream Identifier 0: the frame belongs to the connection.
-    return len(payload).to_bytes(3, "big") + bytes([H2_FRAME_TYPE, 0]) + bytes(4) + payload
-
-
-def decode_h2_update(
-    frame: bytes | bytearray | memoryview, *, max_frame_size: int = H2_DEFAULT_MAX_FRAME_SIZE
-) -> PriorityUpdate:
-    """Decode one complete HTTP/2 PRIORITY_UPDATE frame, header included.
-
-    Raises FrameError with ``code`` set to the connection error RFC 9218 and RFC 9113 name:
-    PROTOCOL_ERROR for a non-zero frame Stream Identifier or a zero prioritized stream ID,
-    FRAME_SIZE_ERROR for a payload shorter than 4 bytes or larger than ``max_frame_size``.
-    The reserved bits are ignored, as RFC 9113 section 4.1 requires.
-    """
-    data = _octets(frame)
-    _check_id(max_frame_size, H2_DEFAULT_MAX_FRAME_SIZE, _H2_MAX_FRAME_SIZE, "max_frame_size")
-    if len(data) < 9 or data[3] != H2_FRAME_TYPE:
-        raise FrameError("not an HTTP/2 PRIORITY_UPDATE frame")
-    length = int.from_bytes(data[:3], "big")
-    if len(data) != 9 + length:
-        raise FrameError(f"the header announces {length} payload bytes, {len(data) - 9} given")
-    if length > max_frame_size:
-        raise FrameError(f"{length} bytes exceed the frame size limit", "FRAME_SIZE_ERROR")
-    if int.from_bytes(data[5:9], "big") & _STREAM_MASK:
-        raise FrameError("PRIORITY_UPDATE must be sent on stream 0", "PROTOCOL_ERROR")
-    if length < 4:
-        raise FrameError("the payload is too short for a stream ID", "FRAME_SIZE_ERROR")
-    element = int.from_bytes(data[9:13], "big") & _STREAM_MASK
-    if element == 0:
-        raise FrameError("the prioritized stream ID is 0", "PROTOCOL_ERROR")
-    return PriorityUpdate(element, data[13:].decode("latin-1"), "stream", "h2")
-
-
-def encode_varint(value: int) -> bytes:
-    """Encode ``value`` as a QUIC variable-length integer on the fewest bytes (RFC 9000 s16)."""
-    _check_id(value, 0, VARINT_MAX, "a variable-length integer")
-    for prefix, size in ((0, 1), (1, 2), (2, 4), (3, 8)):
-        if value < 1 << (8 * size - 2):
-            return (value | prefix << (8 * size - 2)).to_bytes(size, "big")
-    raise AssertionError("unreachable: the range check bounds the value")
-
-
-def decode_varint(data: bytes, offset: int = 0) -> tuple[int, int]:
-    """Return the variable-length integer at ``offset`` and the offset after it."""
-    if offset >= len(data):
-        raise FrameError("a variable-length integer is missing", "H3_FRAME_ERROR")
-    size = 1 << (data[offset] >> 6)
-    if offset + size > len(data):
-        raise FrameError("a variable-length integer is truncated", "H3_FRAME_ERROR")
-    value = int.from_bytes(data[offset : offset + size], "big") & ((1 << (8 * size - 2)) - 1)
-    return value, offset + size
-
-
-def encode_h3_update(element_id: int, field_value: str, *, target: Target = "stream") -> bytes:
-    """Encode an HTTP/3 PRIORITY_UPDATE frame for a request stream or a push ID."""
-    if target not in ("stream", "push"):
-        raise ValueError(f"target must be 'stream' or 'push', got {target!r}")
-    _check_id(element_id, 0, VARINT_MAX, "element_id")
-    if target == "stream" and element_id % 4:
-        raise FrameError(f"{element_id} is not a client-initiated bidirectional stream")
-    kind = H3_REQUEST_FRAME_TYPE if target == "stream" else H3_PUSH_FRAME_TYPE
-    payload = encode_varint(element_id) + _value_octets(field_value)
-    return encode_varint(kind) + encode_varint(len(payload)) + payload
-
-
-def decode_h3_update(frame: bytes | bytearray | memoryview) -> PriorityUpdate:
-    """Decode one complete HTTP/3 PRIORITY_UPDATE frame (type, length and payload).
-
-    Raises FrameError with ``code`` H3_FRAME_ERROR for a payload that ends inside the
-    element ID, and H3_ID_ERROR when the request variant names a stream that is not a
-    client-initiated bidirectional (request) stream. Stream limits and push ID state need
-    the connection and are left to the caller.
-    """
-    data = _octets(frame)
-    try:
-        kind, offset = decode_varint(data)
-        length, offset = decode_varint(data, offset)
-    except FrameError:
-        raise FrameError("not an HTTP/3 PRIORITY_UPDATE frame") from None
-    if kind not in (H3_REQUEST_FRAME_TYPE, H3_PUSH_FRAME_TYPE):
-        raise FrameError("not an HTTP/3 PRIORITY_UPDATE frame")
-    if len(data) - offset != length:
-        raise FrameError(f"the frame announces {length} payload bytes, {len(data) - offset} given")
-    element, offset = decode_varint(data, offset)
-    if kind == H3_REQUEST_FRAME_TYPE and element % 4:
-        raise FrameError(f"{element} is not a request stream", "H3_ID_ERROR")
-    target: Target = "stream" if kind == H3_REQUEST_FRAME_TYPE else "push"
-    return PriorityUpdate(element, data[offset:].decode("latin-1"), target, "h3")
+        raise TypeError(f"{what} must be an int, got {shown(value)}")
+    number = int.__int__(value)
+    if not low <= number <= high:
+        raise FrameError(f"{what} {shown(number)} is outside {low}..{high}")
+    return number

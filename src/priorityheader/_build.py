@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ._errors import shown
 from ._model import (
     DEFAULT_INCREMENTAL,
     DEFAULT_URGENCY,
@@ -30,6 +31,14 @@ def build_priority(
     ``extensions`` adds further members (RFC 9218 section 4.3) after ``u`` and ``i``.
     Raises PriorityError for a value out of range or a key that is not a structured field
     key, and TypeError for a wrong type.
+
+    >>> from priorityheader import Token, build_priority
+    >>> build_priority()
+    ''
+    >>> build_priority(0, True)
+    'u=0, i'
+    >>> build_priority(1, extensions={"hint": Token("viewport")})
+    'u=1, hint=viewport'
     """
     urgency = check_urgency(urgency)
     check_incremental(incremental)
@@ -45,10 +54,17 @@ def build_params(params: PriorityParams) -> str:
 
     Use it for a response, where an absent member means "keep the client value" and so
     ``u=3`` has to be written to move a client back to the default urgency. A false
-    incremental flag is written as ``i=?0``.
+    incremental flag is written as ``i=?0``. TypeError when ``params`` is not a
+    PriorityParams.
+
+    >>> from priorityheader import PriorityParams, build_params
+    >>> build_params(PriorityParams(urgency=3, incremental=False))
+    'u=3, i=?0'
+    >>> build_params(PriorityParams())
+    ''
     """
     if not isinstance(params, PriorityParams):
-        raise TypeError(f"params must be PriorityParams, got {params!r}")
+        raise TypeError(f"params must be PriorityParams, got {shown(params)}")
     return _render(params.urgency, params.incremental, dict(params.extensions))
 
 

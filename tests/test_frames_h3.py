@@ -5,7 +5,7 @@ https://www.rfc-editor.org/rfc/rfc9000.txt), not copied."""
 import pytest
 
 from priorityheader import FrameError, Priority, PriorityUpdate, decode_h3_update, encode_h3_update
-from priorityheader._frames import decode_varint, encode_varint
+from priorityheader._h3 import decode_varint, encode_varint
 
 H3_REQUEST = bytes.fromhex("800f0700 07 04") + b"u=1, i"
 H3_PUSH = bytes.fromhex("800f0701 04 03") + b"u=1"
@@ -58,7 +58,7 @@ def test_h3_encode_refuses_ids_that_are_not_request_streams() -> None:
 
 
 def test_h3_encode_checks_the_target_and_the_range() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(FrameError):
         encode_h3_update(0, "u=1", target="other")  # type: ignore[arg-type]
     with pytest.raises(FrameError):
         encode_h3_update(1 << 62, "u=1", target="push")

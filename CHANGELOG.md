@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-20
+
+The first stable release. The names in `priorityheader.__all__`, their parameter names,
+defaults, return types and error types now follow semantic versioning; the
+[GUIDE](https://github.com/JaviLianes8/priorityheader/blob/main/GUIDE.md) describes each
+one. Code written for 0.2.0 keeps working unless it relied on one of the changes below.
+
+### Changed
+
+- `Priority` checks its fields whenever one is made, including through `_replace` and
+  `_make`: an urgency outside 0..7 raises `PriorityError`, an urgency that is not an
+  `int` or a flag that is not a `bool` raises `TypeError`. In 0.2.0 `Priority(9, "yes")`
+  was accepted.
+- `encode_h3_update` raises `FrameError` (still a `ValueError`) for a `target` other than
+  `"stream"` or `"push"`, instead of a plain `ValueError`.
+- Error messages quote at most 60 characters of the value they mention. In 0.2.0 an
+  oversized key, string or type error quoted the whole value, and an integer of more than
+  4,300 digits (as an urgency, an extension value or a frame ID) raised Python's own
+  `ValueError` about integer string conversion instead of `PriorityError` or
+  `FrameError`.
+- `Token`, `DisplayString` and `Date` show their type in `repr` (`Token('a')` instead of
+  `'a'`), so `PriorityParams` reprs tell a Token from a String.
+- Public classes report `priorityheader` as their module.
+
+### Added
+
+- `PriorityParams` can be pickled and copied; in 0.2.0 `pickle`, `copy.copy` and
+  `copy.deepcopy` raised `TypeError`.
+- `FrameError` takes an `offset`, set when an encoder refuses a value that does not parse
+  and by `PriorityUpdate.priority(strict=True)`.
+- Docstrings with examples that run as tests, and a GUIDE.
+
 ## [0.2.0]
 
 ### Changed
