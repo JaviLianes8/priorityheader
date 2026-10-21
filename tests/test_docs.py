@@ -36,7 +36,9 @@ def _expected_output(block: str) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    "name,text,blocks,outputs", [("README", README, 4, 16), ("GUIDE", GUIDE, 5, 13)]
+    "name,text,blocks,outputs",
+    [("README", README, 4, 16), ("GUIDE", GUIDE, 5, 13)],
+    ids=["README", "GUIDE"],
 )
 def test_every_example_runs_and_prints_its_comment(
     name: str, text: str, blocks: int, outputs: int
