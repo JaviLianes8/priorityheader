@@ -258,8 +258,8 @@ three reference implementations, `PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_
 and `pytest` (503 passed, no skips) all exit 0.
 
 Interpreters at db2f1e5, on another machine from a fresh clone: one build, `twine check
---strict` passed for both files, the wheel and sdist listings unchanged apart from the new
-test file; the wheel installed in a fresh venv per interpreter and the sdist's suite run
+--strict` passed for both files, the wheel listing identical to the one at e4abedd and the
+sdist listing differing only by the five test files added since; the wheel installed in a fresh venv per interpreter and the sdist's suite run
 with `src` removed and the fetched sources present: CPython 3.11.14, 3.12.12, 3.13.11 and
 3.14.2 (481 passed), 3.10.19 and 3.14.2t (480 passed, aioquic 1.7.0 has no wheel there).
 The skips are the opt-in e2e tests and the two mypy tests (mypy is not installed in those
