@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
-from ._errors import FrameError, PriorityError, shown
+from ._errors import FrameError, PriorityError, plain_octets, shown
 from ._model import Priority
 from ._parse import parse_priority
 from ._sfdict import parse_dictionary
@@ -82,7 +82,7 @@ def octets(frame: object) -> bytes:
     """Return a copy of the frame bytes, refusing anything that is not bytes-like."""
     if not isinstance(frame, (bytes, bytearray, memoryview)):
         raise TypeError(f"a frame is bytes, got {shown(frame)}")
-    return bytes(frame)
+    return plain_octets(frame)
 
 
 def check_id(value: object, low: int, high: int, what: str) -> int:

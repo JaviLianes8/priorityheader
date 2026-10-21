@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ._errors import PriorityError, shown
+from ._errors import PriorityError, plain_octets, shown
 from ._model import MAX_URGENCY, MIN_URGENCY, ExtensionValue, Priority, PriorityParams
 from ._sfdict import parse_dictionary
 
@@ -23,13 +23,13 @@ def field_text(header: object) -> str | None:
 
 
 def _line(value: object) -> str:
-    # The reader works on a plain copy, so a subclass's len, slicing or __bytes__ never runs.
+    # The reader works on a plain copy, so no method of a str or bytes subclass runs.
     if isinstance(value, str):
         return str.__str__(value)
     if isinstance(value, (bytes, bytearray)):
         # Latin-1 maps every octet to one character, so a non-ASCII octet reaches the
         # structured field reader and fails there with its offset.
-        return bytes(memoryview(value)).decode("latin-1")
+        return plain_octets(value).decode("latin-1")
     raise TypeError(f"a Priority field is a str, bytes or a list of them, got {shown(value)}")
 
 

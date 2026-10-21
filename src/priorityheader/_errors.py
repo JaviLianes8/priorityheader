@@ -66,14 +66,25 @@ def shown(value: object) -> str:
         return f"a {type(value).__name__} value"
 
 
+def plain_octets(value: bytes | bytearray | memoryview) -> bytes:
+    """Return the octets of ``value`` as plain bytes without running a subclass method."""
+    # bytes() would call __bytes__ and memoryview() a Python __buffer__ (3.12+); the base
+    # slice copies the stored octets directly.
+    if isinstance(value, bytes):
+        return bytes.__getitem__(value, slice(None))
+    if isinstance(value, bytearray):
+        return bytes(bytearray.__getitem__(value, slice(None)))
+    return value.tobytes()
+
+
 def _quote(value: object) -> str:
     base: object = value
     if isinstance(value, str):
         base = str.__str__(value)
     elif isinstance(value, bytes):
-        base = bytes(memoryview(value))
+        base = plain_octets(value)
     elif isinstance(value, bytearray):
-        base = bytearray(memoryview(value))
+        base = bytearray(plain_octets(value))
     elif isinstance(value, int) and not isinstance(value, bool):
         base = int.__int__(value)
         if int.bit_length(base) > 192:

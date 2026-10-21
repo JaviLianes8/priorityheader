@@ -6,7 +6,7 @@ import base64
 from collections.abc import Mapping, Sequence
 from decimal import ROUND_HALF_EVEN, Context, Decimal
 
-from ._errors import PriorityError, shown
+from ._errors import PriorityError, plain_octets, shown
 from ._sftypes import ALPHA, KEY_CHARS, LCALPHA, TOKEN_CHARS, BareItem, Date, DisplayString, Token
 
 INTEGER_LIMIT = 999_999_999_999_999
@@ -99,7 +99,7 @@ def plain(value: object, *, inner: bool = False) -> object:
     if isinstance(value, str):
         return str.__str__(value)
     if isinstance(value, bytes):
-        return bytes(memoryview(value))
+        return plain_octets(value)
     if isinstance(value, (tuple, list)) and not inner:
         return tuple(plain(item, inner=True) for item in value)
     raise TypeError(f"cannot serialize {type(value).__name__} as a structured field item")

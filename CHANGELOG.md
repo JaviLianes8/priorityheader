@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-10-20
+## [1.0.0] - 2026-10-21
 
 The first stable release. The names in `priorityheader.__all__`, their parameter names,
 defaults, return types and error types now follow semantic versioning; the
@@ -40,11 +40,13 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   is. In 0.2.0 a lower precision or extra traps there made `parse_priority`,
   `build_priority` and `PriorityParams` raise `decimal` signals such as
   `InvalidOperation` or `Rounded`.
-- A `str`, `bytes` or `int` subclass whose `len`, slicing, `__bytes__` or `repr` raises
-  still gets the documented result, not the subclass's own exception: `parse_priority`,
-  `parse_params` and `merge_priority` read the plain text or octets of such a field, and
-  the builders and frame functions raise their documented `TypeError` or
-  `PriorityError`. In 0.2.0 the parsers let the subclass's exception out.
+- A `str`, `bytes`, `bytearray` or `int` subclass whose `len`, slicing, `__bytes__`,
+  `__buffer__` or `repr` raises still gets the documented result, not the subclass's own
+  exception: `parse_priority`, `parse_params`, `merge_priority`, `decode_h2_update` and
+  `decode_h3_update` read the stored text or octets of such a value, the builders write
+  the stored octets of a Byte Sequence, and errors quote the stored value. A `__bytes__`
+  or `__buffer__` that returns other octets changes nothing either. In 0.2.0 the parsers
+  and decoders let the subclass's exception out or read the octets it returned.
 - An error message stays within its 60-character quote when a value's `repr` returns a
   `str` subclass that misreports its length; in 0.2.0 the whole `repr` was quoted.
 
