@@ -190,7 +190,8 @@ incremental flag, extension members in their written form and the canonical requ
 form. `--response` prints the explicit members with null for absent ones, and
 `--request VALUE` merges the given lines, as a response, over that request. Without a
 value the lines come from standard input, either one bare value per line or a message
-head such as `curl -sI` prints (then only its `Priority` lines count). `--strict` exits
+head such as `curl -sI` prints (then only its `Priority` lines count, a folded line
+joined to the one before it with a space). Only LF ends a line. `--strict` exits
 with status 1 on a value that does not parse; usage errors exit with 2.
 
 ## Stability

@@ -28,8 +28,9 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   object, such as `"no"`, turned strict mode on.
 - An object that claims to be a `bool` without being `True` or `False` (for example
   `unittest.mock.Mock(spec=bool)`) raises `TypeError` as an incremental flag or an
-  extension value. In 0.2.0 it was stored as it was, and comparing or hashing the
-  `PriorityParams` that held it raised `RuntimeError`.
+  extension value. In 0.2.0 it was stored as it was (and `build_priority` wrote it as a
+  true flag); as an extension value it made comparing or hashing the `PriorityParams`
+  that held it raise `RuntimeError`.
 - `build_params` writes a `PriorityParams` subclass from the members the base class stores,
   checked again, so a subclass that overrides `urgency`, `incremental` or `extensions`
   can no longer make it write an invalid value.
@@ -37,6 +38,12 @@ one. Code written for 0.2.0 keeps working unless it relied on one of the changes
   0.2.0 the vertical tab, form feed, 0x1C to 0x1E, 0x85 and a lone CR also ended a line,
   so `--strict` accepted such a value from standard input and a `Priority` line of a
   message head was cut short.
+- In a message head on standard input, a line that starts with a space or tab continues
+  the field line before it (an obs-fold, RFC 9112 section 5.2) and is joined to it with
+  one space, so a folded `Priority` value is read whole. Such a line that follows no
+  field line, for example right after the status line, is no field line and is dropped.
+  In 0.2.0 each folded line was read on its own: the continuation of a `Priority` line
+  was lost, so `--strict` accepted the value, and an indented `priority:` line counted.
 - Error messages quote at most 60 characters of the value they mention. In 0.2.0 an
   oversized key, string or type error quoted the whole value, and an integer of more than
   4,300 digits (as an urgency, an extension value or a frame ID) raised Python's own

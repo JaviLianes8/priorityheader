@@ -30,13 +30,33 @@ def _field_lines(text: str) -> list[str]:
     """
     # Only LF ends a line, with the CR before it dropped (RFC 9112 section 2.2). Every other
     # octet, a lone CR or the extra breaks str.splitlines() knows included, reaches the parser.
-    lines = [line.removesuffix("\r").strip(_OWS) for line in text.split("\n")]
-    present = [line for line in lines if line]
-    named = [match for match in map(_FIELD_LINE.match, present) if match]
-    priority = [m.group(2).strip(_OWS) for m in named if m.group(1).lower() == "priority"]
+    raw = [line.removesuffix("\r") for line in text.split("\n")]
+    present = [line for line in (line.strip(_OWS) for line in raw) if line]
+    priority = _priority_values([line.strip(_OWS) for line in _unfold(raw)])
     if priority or (present and _START_LINE.match(present[0])):
         return priority
     return present
+
+
+def _priority_values(lines: list[str]) -> list[str]:
+    named = [match for match in map(_FIELD_LINE.match, lines) if match]
+    return [m.group(2).strip(_OWS) for m in named if m.group(1).lower() == "priority"]
+
+
+def _unfold(lines: list[str]) -> list[str]:
+    # In a head a line that starts with SP or HTAB continues the field line before it, and
+    # the obs-fold is replaced by one SP (RFC 9112 section 5.2) so the value is read whole.
+    # Such a line after anything else is no field line and is dropped (section 2.2).
+    unfolded: list[str] = []
+    folding = False
+    for line in lines:
+        if line[:1] in (" ", "\t"):
+            if folding:
+                unfolded[-1] = f"{unfolded[-1].rstrip(_OWS)} {line.strip(_OWS)}"
+            continue
+        unfolded.append(line)
+        folding = _FIELD_LINE.match(line) is not None
+    return unfolded
 
 
 def _report(params: PriorityParams, *, response: bool) -> dict[str, object]:
