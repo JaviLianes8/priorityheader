@@ -43,7 +43,7 @@ def test_only_a_space_or_a_tab_starts_a_fold(
     assert (report["urgency"], report["incremental"], report["canonical"]) == (1, False, "u=1")
 
 
-@pytest.mark.parametrize("octet", [b"\x0b", b"\x0c", b"\x85"], ids=lambda octet: octet.hex())
+@pytest.mark.parametrize("octet", [b"\r", b"\x0b", b"\x0c", b"\x85"], ids=lambda octet: octet.hex())
 @pytest.mark.parametrize(
     ("lines", "offset"),
     [
