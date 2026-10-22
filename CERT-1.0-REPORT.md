@@ -17,7 +17,7 @@ Progress:
 - [x] PR and trace guard
 - [ ] Five QA lenses (item 19): round 8 finding (lens e) fixed in d37d715
 - [ ] Independent reviewer (item 16): round 1 finding (item 18) fixed in 8480f5d; round 2
-  finding (item 18) fixed in the commit that records it below
+  finding (item 18) fixed in c77bbb9
 
 ## Scorecard (author)
 
@@ -465,7 +465,35 @@ Gates at 8480f5d on that machine (fetched sources, http-sf, hyperframe, aioquic,
 `ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (660 passed,
 the 654 of round 8 and 6 new cases, no skips) all exit 0.
 
+### Independent reviewer, round 2 (on c90a1fc)
+
+The reviewer confirmed round 1's F1 fixed and scored items 1 to 15 and 19 PASS, item 17
+pending the merge, item 18 FAIL (F1) and so item 16 FAIL (F2). F1 is again a missing
+contract, not a behaviour bug: the code already refuses every input below, so the code is
+unchanged and so is the CHANGELOG. Both findings are fixed in c77bbb9 and not disputed.
+
+| Finding | Gap | Fix | Contract |
+| --- | --- | --- | --- |
+| F1 (item 18) | two more RFC 9651 rules were pinned only by the fetched corpus and the http-sf oracle: V-04 (the parameter reader skips HTAB as well as SP after `;`, so `u=1;<HTAB>a=2, i` reads as `Priority(1, True)`) and V-05 (the String reader takes `n` after a backslash, so `u=1, a="x\ny"` gives urgency 1) survived the suite in a fresh clone | six cases, written by hand from the grammar, added to the strict offset table, each also checked to be ignored by the lenient reader (`Priority()`) | `test_strict_parse_refuses_grammar_breaks_at_their_offset`: `u=1;<HTAB>a=2, i` (4), `a=(1;<HTAB>b)` (5), `i;<HTAB>x` (2) for section 4.2.3.2, `a="\n"` (5), `u=1, a="x\ny"` (11), `a=("\n")` (6) for section 4.2.5 |
+| F2 (item 16) | item 16 fails while item 18 fails | F1 fixed; a fresh re-review on the new commit decides item 16 | - |
+
+The offsets were checked on c90a1fc, where all six cases are refused at the listed offset
+and the lenient reader returns `Priority()`. With V-04 applied, the three section 4.2.3.2
+cases are accepted; with V-05 applied, the three section 4.2.5 cases are.
+
+On another machine (CPython 3.14.6, a clone of a bundle of c77bbb9), in the reviewer's
+bare mode (`tests/upstream` moved aside except `MANIFEST.json`, `http_sf`, `hyperframe`
+and `aioquic` stubbed to raise `ModuleNotFoundError`, no e2e variables), `pytest -x` on the
+unchanged code runs 666 tests with 63 skips and no failure; with V-04 it stops at
+`[u=1;\ta=2, i-4]`, with V-05 at `[a="\\n"-5]`, and R-15 and G-12 still stop at
+`[a=1.-4]` and `[a=? 1-3]`, all four "DID NOT RAISE PriorityError".
+
+Gates at c77bbb9 on a third machine (CPython 3.14.2, fetched sources, http-sf, hyperframe,
+aioquic, `PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`,
+`ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (666 passed,
+the 660 of round 1 and 6 new cases, no skips) all exit 0.
+
 ### Disputed findings
 
 None in round 1, round 2, round 3, round 4, round 5, round 6, round 7 or round 8, nor in
-the independent reviewer's round 1.
+the independent reviewer's round 1 or round 2.
