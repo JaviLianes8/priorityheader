@@ -35,6 +35,12 @@ from priorityheader import (
         ('a=%"%ff"', 8),  # section 4.2.10: a Display String must decode as UTF-8
         ("a=@1.5", 6),  # section 4.2.9: a Date is an Integer
         ("aB=1", 1),  # section 4.2.3.3: a key holds no upper-case letter
+        ("a=1.", 4),  # section 4.2.4: a Decimal has 1 to 3 digits after the point
+        ("a=-1.", 5),
+        ("u=1., i", 4),
+        ("a=? 1", 3),  # section 4.2.8: no space inside a Boolean
+        ("a=(? 0)", 4),
+        ("i=? 1", 3),
     ],
 )
 def test_strict_parse_refuses_grammar_breaks_at_their_offset(text: str, offset: int) -> None:
@@ -42,6 +48,7 @@ def test_strict_parse_refuses_grammar_breaks_at_their_offset(text: str, offset: 
         parse_params(text, strict=True)
     assert caught.value.offset == offset
     assert parse_params(text).extensions == {}
+    assert parse_priority(text) == Priority()
 
 
 @pytest.mark.parametrize(
