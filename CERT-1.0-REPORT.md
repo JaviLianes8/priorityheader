@@ -15,9 +15,8 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR and trace guard
-- [ ] Five QA lenses (item 19): round 8 finding (lens e) fixed in d37d715
-- [ ] Independent reviewer (item 16): round 1 finding (item 18) fixed in 8480f5d; round 2
-  finding (item 18) fixed in c77bbb9
+- [x] Five QA lenses (item 19): all five PASS (see QA verdicts)
+- [x] Independent reviewer (item 16): round 3 on 16a0601 scored every item PASS
 
 ## Scorecard (author)
 
@@ -38,10 +37,10 @@ Progress:
 | 13 | pyproject 1.0.0, Production/Stable | PASS |
 | 14 | sdist and wheel contents | PASS |
 | 15 | Gates each exit 0 | PASS: see Gates |
-| 16 | Independent reviewer | pending |
-| 17 | PR and trace guard | PR #3 from `release/1.0.0`, trace guard CLEAN; merge and publish left to the maintainer |
+| 16 | Independent reviewer | PASS: round 3 on 16a0601, every item PASS (see below) |
+| 17 | PR and trace guard | PASS: PR #3 from `release/1.0.0`, trace guard CLEAN; merge and publish left to the maintainer |
 | 18 | Contracts bite (mutations) | PASS: author 40, 38 killed, 2 argued equivalent; reviewer R-15 and G-12 killed after 8480f5d, V-04 and V-05 after its round 2 fix |
-| 19 | Five independent QA lenses | pending |
+| 19 | Five independent QA lenses | PASS: lenses a to e, see QA verdicts |
 
 ## Baseline on 0.2.0 (before any change)
 
@@ -493,7 +492,77 @@ aioquic, `PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format -
 `ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (666 passed,
 the 660 of round 1 and 6 new cases, no skips) all exit 0.
 
+### Independent reviewer, round 3 (on 16a0601)
+
+The reviewer confirmed round 2's F1 fixed and scored every item PASS. It ran on another
+machine from a fresh clone of 16a0601 (CPython 3.14.2), with the fetched sources, http-sf,
+hyperframe and aioquic present for the gates and the matrix.
+
+| # | Item | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | Public API reviewed for stability | PASS | 25 names in `__all__`, signatures pinned by `tests/test_contract_api.py`; a consumer script from an empty folder against the installed wheel checks the API |
+| 2 | `__all__` exact, no private imports in docs | PASS | `__all__` read from the installed wheel lists exactly the 25 public names |
+| 3 | Docstrings with runnable examples | PASS | 19 doctests pass from the installed wheel on each interpreter; README and GUIDE examples run in `tests/test_docs.py` |
+| 4 | Typed end to end | PASS | `mypy --strict src` (14 files) and `mypy --strict src tests` (48 files) exit 0; `py.typed` in the wheel |
+| 5 | Typed, documented, bounded errors | PASS | a message about a huge value is 102 characters long; strict CLI error names its offset |
+| 6 | Contract tests of every public name | PASS | contract files run in the suite: 666 passed |
+| 7 | Real ground truth | PASS | fetched sources and the three reference implementations present for the suite |
+| 8 | Real e2e from the wheel | PASS | wheel in a throwaway venv, consumer from an empty folder, CLI as script and `python -m` (exit 0, 1 and 2 as documented); PyPI 0.2.0 installed, checked and upgraded in place, consumer run again |
+| 9 | Seeded fuzz, no crash, hang or blowup | PASS | `tests/test_fuzz.py` and the linear time contracts pass in the suite |
+| 10 | Supported Pythons | PASS | wheel and suite on CPython 3.10.19, 3.11.14, 3.12.12, 3.13.11, 3.14.2 and 3.14.2t (644 or 645 passed, 2 or 3 skips: opt-in e2e, and aioquic where it has no wheel), doctests 19 passed each; 3.9.25 refuses the wheel |
+| 11 | README and `twine check` | PASS | `twine check --strict` passes for wheel and sdist; README renders with `readme_renderer`, every link absolute, badge present |
+| 12 | Dated CHANGELOG section | PASS | `## [1.0.0] - 2026-10-21` with a link reference |
+| 13 | pyproject 1.0.0, Production/Stable | PASS | METADATA: Version 1.0.0, `Development Status :: 5 - Production/Stable`, Python 3.10 to 3.14 classifiers, MIT, Homepage, Source, Issues and Changelog URLs, keywords, no runtime `Requires-Dist` |
+| 14 | sdist and wheel contents | PASS | wheel: the package, `py.typed`, entry point and `licenses/LICENSE`; sdist: sources, tests, scripts, docs, LICENSE and the manifest, no fetched files and no scratch |
+| 15 | Gates each exit 0 | PASS | `ruff format --check .`, `ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (666 passed, `PRIORITYHEADER_E2E=1`, `PRIORITYHEADER_E2E_PYPI=1`) |
+| 16 | Independent reviewer | PASS | this round, no finding |
+| 17 | PR and trace guard | PASS | PR #3 open from `release/1.0.0` at 16a0601; merge and publish left to the maintainer |
+| 18 | Contracts bite (mutations) | PASS | 16 mutants (R-15, G-12, V-01 to V-14) applied one at a time in bare mode (`tests/upstream` reduced to `MANIFEST.json`, the three reference implementations stubbed out, no e2e variables): all 16 killed; suite green before and after, tree clean |
+| 19 | Five independent QA lenses | PASS | see QA verdicts |
+
+## QA verdicts (item 19)
+
+Each lens ran on its own clone and reported back only. The report paths are in the local
+certification folder, which is not committed.
+
+| Lens | Rounds | Final verdict | Report | Commit |
+| --- | --- | --- | --- | --- |
+| a. API and docs | 4 | PASS | `lens-a-r4/REPORT.md` | 037639f |
+| b. Correctness and ground truth | 1 | PASS | `lens-b-r1/work3` (scripts, inputs and outputs) and `lens-b-r1/ext3` (fetched sources) | 56cf946 |
+| c. Adversarial and robustness | 4 | PASS | `lens-c-r4/work` (scripts and logs) | 037639f |
+| d. Packaging and real e2e | 2 | PASS | `lens-d-r2/out/run.log` | f96684a |
+| e. Contract strength | 6 | PASS | `lens-e-r6/REPORT.md` | 2c519cb |
+| Independent reviewer | 3 | PASS | `review-r3/job` (`gates-pkg.log`, `mut-bare.log`, `matrix1.log`, `matrix2.log`, `pr.json`) | 16a0601 |
+
+Lens b, no findings. The httpwg structured-field-tests (main at 3c6d7761, fetched on
+2026-10-21) ran against the reader and the public API: 2,183 Dictionary and Item checks
+with 0 failures, 319 of 319 List tests through the Item and Inner List readers, and 190 of
+190 invalid parameter keys refused as extension keys. A three-way differential against
+http-sf 1.4.0 and the JavaScript structured-headers 2.1.1 (3 seeds, about 33,600 inputs
+each) left only three kinds of disagreement: unpadded Byte Sequences (RFC 9651 section
+4.2.7 says parsers SHOULD NOT fail), Dates outside the oracle's range, and 16 digit
+Integers with leading zeros, which RFC 9651 section 4.2.4 refuses; with those removed,
+1,427 rechecked cases agree. The writer matched http-sf's serializer on 30,000 typed
+values, Decimal rounding included; about 100,800 parse and build round trips gave no
+problem. QUIC varints match the RFC 9000 appendix A.1 samples and aioquic 1.7.0, HTTP/2
+frames agree both ways with hyperframe 6.1.0 and reach a real h2 4.4.1 server intact,
+HTTP/3 frames are identical to aioquic's, and the error codes match RFC 9218, RFC 9113
+and RFC 9114. The RFC 9218 examples and 40 hand-written rule cases passed, on CPython
+3.10.19, 3.11.5, 3.12.12, 3.13.2, 3.14.2 and 3.14.2t. Every README and GUIDE example
+printed its documented output, and the command line exited 0, 1 and 2 as documented.
+
+Lens c, round 4: F5 (quadratic fold join, fixed in 0d74275) stays fixed, with doubling
+ratios of 1.56 to 2.30 on CPython 3.10.19, 3.13.2 and 3.14.2 (were 2.62 to 4.05); 1 MiB
+with 260,000 folds reads in 0.21 s (was 2.66 s). F1 to F4 stay fixed. A new sweep of 32
+probes on `_unfold` and `_join` failed none: linear scaling of every fold shape from 64k
+to 1024k, memory, 13 join edge cases, a 30,000 case differential against the d76d240
+semantics and a 15,000 head regex oracle (0 mismatches each), 60,000 fold fuzz runs with
+no exception, bounded messages and standard input agreeing with arguments.
+
+Commits after each lens's final round were covered by the lens rounds that followed and
+by the independent reviewer's round 3 on 16a0601.
+
 ### Disputed findings
 
 None in round 1, round 2, round 3, round 4, round 5, round 6, round 7 or round 8, nor in
-the independent reviewer's round 1 or round 2.
+the independent reviewer's round 1, round 2 or round 3.
