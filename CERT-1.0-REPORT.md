@@ -16,7 +16,7 @@ Progress:
 - [x] Gates (item 15)
 - [x] PR and trace guard
 - [ ] Five QA lenses (item 19): round 8 finding (lens e) fixed in d37d715
-- [ ] Independent reviewer (item 16)
+- [ ] Independent reviewer (item 16): round 1 finding (item 18) fixed in 8480f5d
 
 ## Scorecard (author)
 
@@ -39,7 +39,7 @@ Progress:
 | 15 | Gates each exit 0 | PASS: see Gates |
 | 16 | Independent reviewer | pending |
 | 17 | PR and trace guard | PR #3 from `release/1.0.0`, trace guard CLEAN; merge and publish left to the maintainer |
-| 18 | Contracts bite (mutations) | PASS: author 40, 38 killed, 2 argued equivalent |
+| 18 | Contracts bite (mutations) | PASS: author 40, 38 killed, 2 argued equivalent; reviewer R-15 and G-12 killed after 8480f5d |
 | 19 | Five independent QA lenses | pending |
 
 ## Baseline on 0.2.0 (before any change)
@@ -119,6 +119,10 @@ equivalent: every character before the first non-ASCII one is ASCII, so Latin-1 
 stop at the same offset; and a Decimal with 13 integer digits is refused by the range
 check that follows.
 
+R-15 and G-12 come from the independent reviewer's round 1 (see below): both survived the
+suite without the fetched corpus and the reference implementations, so their rows were
+added after the corpus-free contracts of 8480f5d killed them in that mode.
+
 | Id | File | Mutation | Result | First test that failed |
 | --- | --- | --- | --- | --- |
 | M01 | `_model.py` | builder urgency range off by one | killed | test_build::test_build_renders_the_highest_urgency |
@@ -161,6 +165,8 @@ check that follows.
 | M38 | `_sfwrite.py` | writer Decimal digit limit off by one | equivalent | - |
 | M39 | `_build.py` | `build_params` duck-types its argument | killed (re-run) | test_contract_edges::test_build_params_takes_only_priority_params |
 | M40 | `_h2.py` | encoder accepts stream 0 | killed | test_frames::test_h2_encode_refuses_stream_ids_outside_1_to_2_31 |
+| R-15 | `_sf.py` | Decimal with no fraction digit accepted (`not fraction` dropped) | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[a=1.-4] |
+| G-12 | `_sf.py` | SP skipped after `?` in a Boolean | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[a=? 1-3] |
 
 ## Packaging, e2e and Pythons (items 8, 10, 13, 14)
 
@@ -427,6 +433,34 @@ Gates at d37d715 on that machine (fetched sources, http-sf, hyperframe, aioquic,
 `ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (654 passed,
 the 648 of round 7 and 6 new, no skips) all exit 0.
 
+### Independent reviewer, round 1 (on 2c519cb)
+
+The reviewer scored items 1 to 15 and 19 PASS, item 17 pending the merge, item 18 FAIL
+(F1) and so item 16 FAIL (F2). F1 is a missing contract, not a behaviour bug: the code
+already refuses both inputs, so the code is unchanged and so is the CHANGELOG. Both
+findings are fixed in 8480f5d and not disputed.
+
+| Finding | Gap | Fix | Contract |
+| --- | --- | --- | --- |
+| F1 (item 18) | two RFC 9651 rules were pinned only by the fetched corpus and the http-sf oracle: R-15 (`_number` accepts `a=1.`, so `u=1, a=1.` gives urgency 1) and G-12 (the Boolean reader skips SP after `?`, so `i=? 1` reads as incremental) survived the suite in a fresh clone | six cases, written by hand from the grammar, added to the strict offset table; every case in that table now also checks that the lenient reader ignores the field (`Priority()`) | `test_strict_parse_refuses_grammar_breaks_at_their_offset`: `a=1.` (4), `a=-1.` (5), `u=1., i` (4) for section 4.2.4, `a=? 1` (3), `a=(? 0)` (4), `i=? 1` (3) for section 4.2.8 |
+| F2 (item 16) | item 16 fails while item 18 fails | F1 fixed; a fresh re-review on the new commit decides item 16 | - |
+
+The offsets were checked on 2c519cb, where all six cases are refused at the listed offset
+and the lenient reader returns `Priority()`. With R-15 applied, `a=1.`, `a=-1.` and
+`u=1., i` are accepted; with G-12 applied, `a=? 1`, `a=(? 0)` and `i=? 1` are.
+
+On another machine (CPython 3.14.2, a clone of a bundle of 8480f5d), in the reviewer's
+bare mode (`tests/upstream` moved aside except `MANIFEST.json`, `http_sf`, `hyperframe`
+and `aioquic` stubbed to raise `ModuleNotFoundError`, no e2e variables), `pytest -x` on the
+unchanged code runs 660 tests with 63 skips and no failure; with R-15 it stops at
+`[a=1.-4]` and with G-12 at `[a=? 1-3]`, both "DID NOT RAISE PriorityError".
+
+Gates at 8480f5d on that machine (fetched sources, http-sf, hyperframe, aioquic,
+`PRIORITYHEADER_E2E=1` and `PRIORITYHEADER_E2E_PYPI=1`): `ruff format --check .`,
+`ruff check .`, `mypy --strict src`, `mypy --strict src tests` and `pytest` (660 passed,
+the 654 of round 8 and 6 new cases, no skips) all exit 0.
+
 ### Disputed findings
 
-None in round 1, round 2, round 3, round 4, round 5, round 6, round 7 or round 8.
+None in round 1, round 2, round 3, round 4, round 5, round 6, round 7 or round 8, nor in
+the independent reviewer's round 1.
