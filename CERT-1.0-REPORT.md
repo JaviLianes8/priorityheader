@@ -16,7 +16,8 @@ Progress:
 - [x] Gates (item 15)
 - [x] PR and trace guard
 - [ ] Five QA lenses (item 19): round 8 finding (lens e) fixed in d37d715
-- [ ] Independent reviewer (item 16): round 1 finding (item 18) fixed in 8480f5d
+- [ ] Independent reviewer (item 16): round 1 finding (item 18) fixed in 8480f5d; round 2
+  finding (item 18) fixed in the commit that records it below
 
 ## Scorecard (author)
 
@@ -39,7 +40,7 @@ Progress:
 | 15 | Gates each exit 0 | PASS: see Gates |
 | 16 | Independent reviewer | pending |
 | 17 | PR and trace guard | PR #3 from `release/1.0.0`, trace guard CLEAN; merge and publish left to the maintainer |
-| 18 | Contracts bite (mutations) | PASS: author 40, 38 killed, 2 argued equivalent; reviewer R-15 and G-12 killed after 8480f5d |
+| 18 | Contracts bite (mutations) | PASS: author 40, 38 killed, 2 argued equivalent; reviewer R-15 and G-12 killed after 8480f5d, V-04 and V-05 after its round 2 fix |
 | 19 | Five independent QA lenses | pending |
 
 ## Baseline on 0.2.0 (before any change)
@@ -121,7 +122,9 @@ check that follows.
 
 R-15 and G-12 come from the independent reviewer's round 1 (see below): both survived the
 suite without the fetched corpus and the reference implementations, so their rows were
-added after the corpus-free contracts of 8480f5d killed them in that mode.
+added after the corpus-free contracts of 8480f5d killed them in that mode. V-04 and V-05
+come from its round 2 in the same way: the fetched corpus and the http-sf oracle killed them,
+the bare suite did not, so their rows were added once the round 2 contracts killed them there.
 
 | Id | File | Mutation | Result | First test that failed |
 | --- | --- | --- | --- | --- |
@@ -167,6 +170,8 @@ added after the corpus-free contracts of 8480f5d killed them in that mode.
 | M40 | `_h2.py` | encoder accepts stream 0 | killed | test_frames::test_h2_encode_refuses_stream_ids_outside_1_to_2_31 |
 | R-15 | `_sf.py` | Decimal with no fraction digit accepted (`not fraction` dropped) | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[a=1.-4] |
 | G-12 | `_sf.py` | SP skipped after `?` in a Boolean | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[a=? 1-3] |
+| V-04 | `_sf.py` | HTAB skipped with SP after `;` in parameters | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[u=1;\ta=2, i-4] |
+| V-05 | `_sf.py` | `n` accepted after a backslash in a String | killed (re-run) | test_contract_corpus_free::test_strict_parse_refuses_grammar_breaks_at_their_offset[a="\\n"-5] |
 
 ## Packaging, e2e and Pythons (items 8, 10, 13, 14)
 

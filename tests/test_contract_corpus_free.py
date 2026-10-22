@@ -41,6 +41,12 @@ from priorityheader import (
         ("a=? 1", 3),  # section 4.2.8: no space inside a Boolean
         ("a=(? 0)", 4),
         ("i=? 1", 3),
+        ("u=1;\ta=2, i", 4),  # section 4.2.3.2: only SP, never HTAB, after a ';'
+        ("a=(1;\tb)", 5),
+        ("i;\tx", 2),
+        (r'a="\n"', 5),  # section 4.2.5: only a quote or a backslash follows a backslash
+        (r'u=1, a="x\ny"', 11),
+        (r'a=("\n")', 6),
     ],
 )
 def test_strict_parse_refuses_grammar_breaks_at_their_offset(text: str, offset: int) -> None:
