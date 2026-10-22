@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from types import MappingProxyType
-from typing import NamedTuple, cast
+from typing import Any, NamedTuple, TypeVar, cast
 
-from ._errors import PriorityError
+from ._errors import PriorityError, shown
 from ._sftypes import Date, DisplayString, Token
-from ._sfwrite import plain, serialize_key, serialize_member
+from ._sfwrite import plain, serialize_key, serialize_member, to_three_places
 
 MIN_URGENCY = 0
 MAX_URGENCY = 7
@@ -20,31 +20,66 @@ DEFAULT_INCREMENTAL = False
 ExtensionValue = int | Decimal | str | bytes | tuple[int | Decimal | str | bytes, ...]
 
 
-class Priority(NamedTuple):
-    """An HTTP Priority signal: an urgency 0..7 (0 is the most urgent) and an incremental flag."""
+def check_urgency(urgency: object) -> int:
+    if isinstance(urgency, bool) or not isinstance(urgency, int):
+        raise TypeError(f"urgency must be an int, got {shown(urgency)}")
+    value = int.__int__(urgency)
+    if not MIN_URGENCY <= value <= MAX_URGENCY:
+        raise PriorityError(f"urgency {shown(value)} is outside 0..7")
+    return value
 
+
+def check_flag(value: object, what: str) -> bool:
+    # Identity, not isinstance: an object can claim bool as its __class__ (Mock(spec=bool)).
+    if value is not True and value is not False:
+        raise TypeError(f"{what} must be a bool, got {shown(value)}")
+    return value is True
+
+
+def check_incremental(incremental: object) -> bool:
+    return check_flag(incremental, "incremental")
+
+
+_P = TypeVar("_P", bound="Priority")
+
+
+class _PriorityFields(NamedTuple):
     urgency: int = DEFAULT_URGENCY
     incremental: bool = DEFAULT_INCREMENTAL
 
 
-def check_urgency(urgency: object) -> int:
-    if isinstance(urgency, bool) or not isinstance(urgency, int):
-        raise TypeError(f"urgency must be an int, got {urgency!r}")
-    value = int.__int__(urgency)
-    if not MIN_URGENCY <= value <= MAX_URGENCY:
-        raise PriorityError(f"urgency {value} is outside 0..7")
-    return value
+class Priority(_PriorityFields):
+    """An HTTP Priority signal: an urgency 0..7 (0 is the most urgent) and an incremental flag.
 
+    A named tuple whose fields are checked on construction: PriorityError for an urgency
+    outside 0..7, TypeError for an urgency that is not an int or a flag that is not a bool.
 
-def check_incremental(incremental: object) -> bool:
-    if not isinstance(incremental, bool):
-        raise TypeError(f"incremental must be a bool, got {incremental!r}")
-    return incremental
+    >>> from priorityheader import Priority
+    >>> Priority()
+    Priority(urgency=3, incremental=False)
+    >>> urgency, incremental = Priority(1, True)
+    >>> urgency, incremental
+    (1, True)
+    >>> Priority(1)._replace(incremental=True)
+    Priority(urgency=1, incremental=True)
+    """
+
+    __slots__ = ()
+
+    def __new__(
+        cls, urgency: int = DEFAULT_URGENCY, incremental: bool = DEFAULT_INCREMENTAL
+    ) -> Priority:
+        return super().__new__(cls, check_urgency(urgency), check_incremental(incremental))
+
+    @classmethod
+    def _make(cls: type[_P], iterable: Iterable[Any]) -> _P:  # type: ignore[override]
+        # The tuple default skips __new__; going through it keeps _replace checked too.
+        return cls(*iterable)
 
 
 def check_extensions(extensions: object) -> dict[str, ExtensionValue]:
     if not isinstance(extensions, Mapping):
-        raise TypeError(f"extensions must be a mapping, got {extensions!r}")
+        raise TypeError(f"extensions must be a mapping, got {shown(extensions)}")
     checked: dict[str, ExtensionValue] = {}
     for key, value in extensions.items():
         name = serialize_key(key)
@@ -54,8 +89,8 @@ def check_extensions(extensions: object) -> dict[str, ExtensionValue]:
         # Serializing proves the value is representable, so building can never fail later.
         serialize_member(value)
         for item in value if isinstance(value, tuple) else (value,):
-            if isinstance(item, Decimal) and item != item.quantize(Decimal("0.001")):
-                raise PriorityError(f"{item} has more than three decimal places")
+            if isinstance(item, Decimal) and item != to_three_places(item):
+                raise PriorityError(f"{shown(item)} has more than three decimal places")
         checked[name] = cast(ExtensionValue, value)
     return checked
 
@@ -66,7 +101,17 @@ class PriorityParams:
     A request treats an absent member as its default; a response treats it as "keep the
     client value" (RFC 9218 section 8). ``extensions`` holds the members other than ``u``
     and ``i`` (section 4.3), by key, in field order; their parameters are not kept.
-    Instances are immutable, hashable and compare by value.
+    Instances are immutable, hashable, compare by value and can be pickled and copied.
+    PriorityError or TypeError is raised for a member that could not be written back.
+
+    >>> from priorityheader import Priority, PriorityParams, Token
+    >>> params = PriorityParams(urgency=1, extensions={"hint": Token("viewport")})
+    >>> params.urgency, params.incremental, dict(params.extensions)
+    (1, None, {'hint': Token('viewport')})
+    >>> params.over(Priority(5, True))
+    Priority(urgency=1, incremental=True)
+    >>> params.resolve()
+    Priority(urgency=1, incremental=False)
     """
 
     __slots__ = ("_extensions", "_incremental", "_urgency")
@@ -79,7 +124,9 @@ class PriorityParams:
     ) -> None:
         self._urgency = None if urgency is None else check_urgency(urgency)
         self._incremental = None if incremental is None else check_incremental(incremental)
-        self._extensions = MappingProxyType(check_extensions(extensions or {}))
+        self._extensions = MappingProxyType(
+            check_extensions({} if extensions is None else extensions)
+        )
 
     @property
     def urgency(self) -> int | None:
@@ -97,7 +144,12 @@ class PriorityParams:
         return self._extensions
 
     def over(self, base: Priority) -> Priority:
-        """Return ``base`` with every member present here replacing the one in ``base``."""
+        """Return ``base`` with every member present here replacing the one in ``base``.
+
+        TypeError when ``base`` is not a Priority.
+        """
+        if not isinstance(base, Priority):
+            raise TypeError(f"base must be a Priority, got {shown(base)}")
         return Priority(
             base.urgency if self._urgency is None else self._urgency,
             base.incremental if self._incremental is None else self._incremental,
@@ -106,6 +158,9 @@ class PriorityParams:
     def resolve(self) -> Priority:
         """Apply the defaults to absent members, as a request or PRIORITY_UPDATE reader does."""
         return self.over(Priority())
+
+    def __reduce__(self) -> tuple[type[PriorityParams], tuple[object, ...]]:
+        return (PriorityParams, (self._urgency, self._incremental, dict(self._extensions)))
 
     def _key(self) -> tuple[object, ...]:
         # Tagging by type keeps True apart from 1 and a Token apart from a String, which
@@ -134,5 +189,5 @@ _KINDS = frozenset({Token, DisplayString, Date, bool, int, Decimal, str, bytes})
 def _tag(value: object) -> object:
     if isinstance(value, tuple):
         return tuple(_tag(item) for item in value)
-    kind = next(kind for kind in type(value).__mro__ if kind in _KINDS)
+    kind = next((kind for kind in type(value).__mro__ if kind in _KINDS), type(value))
     return (kind.__name__, value)

@@ -13,6 +13,11 @@ The second command downloads the RFCs, the IANA registry and the structured fiel
 corpus listed in `tests/upstream/MANIFEST.json` and checks their hashes. They are kept out
 of the repository; the tests that need them skip until they are fetched.
 
+`pip install http-sf hyperframe aioquic` adds the independent implementations the
+tests compare against; they are never runtime dependencies. `PRIORITYHEADER_E2E=1` builds
+the wheel and drives it from a fresh virtual environment, and `PRIORITYHEADER_E2E_PYPI=1`
+also upgrades the release on PyPI in place.
+
 ## Before you open a pull request
 
 - Keep public API in `src/priorityheader/__init__.py`; internals live in `_`-prefixed modules.
